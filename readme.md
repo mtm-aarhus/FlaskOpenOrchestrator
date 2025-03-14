@@ -1,4 +1,4 @@
-# PyOrchestrator Database Viewer
+# Flask OpenOrchestrator
 ![alt text](readmeimages/image.png)
 ## Overview
 PyOrchestrator is a **Flask-based** web application designed to improve database visibility and management for process logs, queues, credentials, and system constants. It builds upon the previous solution by adding **enhanced search, sorting, and filtering capabilities** for better usability and efficiency.
