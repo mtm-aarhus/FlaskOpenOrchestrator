@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="container-fluid mt-4">
+        <div class="row gx-4 gy-3">
+            <!-- Error Logs Table -->
+            <div class="col-lg-6 col-md-12 d-flex flex-column">
+                <h4>Recent Error Logs</h4>
+                <div class="table-responsive w-100">
+                    <table class="table table-striped w-100">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Process</th>
+                                <th>Message</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for error in error_logs %}
+                            <tr>
+                                <td>{{ error.time }}</td>
+                                <td class="truncate-text" title="{{ error.process }}">{{ error.process }}</td>
+                                <td class="truncate-text" title="{{ error.message }}">{{ error.message }}</td>
+                                <td>
+                                    <a href="{{ error.link }}" class="btn btn-sm btn-primary">View Logs</a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">No recent error logs found</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Failed Queue Elements Table -->
+            <div class="col-lg-6 col-md-12 d-flex flex-column">
+                <h4>Recently Failed Queue Elements</h4>
+                <div class="table-responsive w-100">
+                    <table class="table table-striped w-100">
+                        <thead>
+                            <tr>
+                                <th>Time of failure</th>
+                                <th>Queue</th>
+                                <th>Reference</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for queue in failed_queues %}
+                            <tr>
+                                <td>{{ queue.failed }}</td>
+                                <td class="truncate-text" title="{{ queue.queue_name }}">{{ queue.queue_name }}</td>
+                                <td class="truncate-text" title="{{ queue.reference }}">{{ queue.reference }}</td>
+                                <td>
+                                    <a href="{{ queue.link }}" class="btn btn-sm btn-primary">View Queue</a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">No recently failed queue elements</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="row gx-4 gy-3">
+            <!-- Failed Triggers -->
+            <div class="col-lg-6 col-md-12 d-flex flex-column">
+                <h4>Failed Triggers</h4>
+                <div class="table-responsive w-100">
+                    <table class="table table-striped w-100">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Process</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for trigger in failed_triggers %}
+                            <tr>
+                                <td class="truncate-text" title="{{ trigger.name }}">{{ trigger.name }}</td>
+                                <td class="truncate-text" title="{{ trigger.process }}">{{ trigger.process }}</td>
+                                <td title="{{ trigger.process_status }}">{{ trigger.process_status }}</td>
+                                <td>
+                                    <a href="{{ trigger.link }}" class="btn btn-sm btn-primary">View Triggers</a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">No failed triggers</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Queue Performance Chart -->
+            <div class="col-lg-6 col-md-12 d-flex flex-column">
+                <h4>Queue Performance (Last 4 Days)</h4>
+                <div class="d-flex flex-grow-1 align-items-center justify-content-center w-100">
+                    <canvas id="queuePerformanceChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/chart.js') }}"></script> 
+
+{% endblock %}

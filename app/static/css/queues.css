@@ -1,0 +1,25 @@
+.text-danger {
+    color:#ff1c1c !important;
+    font-weight: bold;
+}
+
+.text-success {
+    color: #39d339 !important;
+    font-weight: bold;
+}
+
+.text-warning {
+    color: orange !important;
+    font-weight: bold;
+}
+
+.text-primary {
+    color: rgba(13, 110, 253) !important;
+    font-weight: bold;
+}
+
+.text-info {
+    color: #17a2b8 !important;
+    font-weight: bold;
+}
+

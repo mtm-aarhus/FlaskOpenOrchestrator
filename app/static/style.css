@@ -1,0 +1,107 @@
+:root {
+    /* Light Mode Variables */
+    --bg-light: white;
+    --text-light: black;
+
+    /* Dark Mode Variables */
+    --bg-dark: #1d2329;
+    --text-dark: white;
+
+}
+
+/* General Theme */
+body {
+    transition: background 0.3s, color 0.3s;
+    background-color: var(--bg-light);
+    color: var(--text-light);
+}
+
+/* Ensure the search bar aligns with buttons */
+.fixed-table-toolbar .search.btn-group {
+    margin-top: 10px !important;  /* Matches the button's default margin */
+}
+
+
+/* Dark Mode */
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: var(--bg-dark) !important;
+        color: var(--text-dark) !important;
+    }
+    .fixed-table-loading {
+        background: var(--bg-dark) !important;
+    }
+  
+}
+
+.navbar-nav {
+    position: relative;
+}
+
+.navbar-nav .nav-link {
+    font-size: 1.1rem;
+    padding: 0.75rem 1rem;
+    position: relative;
+    transition: color 0.3s ease-in-out;
+}
+
+.navbar-nav .nav-link.active {
+    font-weight: bold;
+    color: #fff !important;
+}
+
+.navbar-nav .nav-link::after {
+    content: "";
+    display: block;
+    width: 0%;
+    height: 3px;
+    background-color: white;
+    position: absolute;
+    bottom: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    transition: width 0.3s ease-in-out;
+}
+
+.navbar-nav .nav-link:hover::after,
+.navbar-nav .nav-link.active::after {
+    width: 80%;
+}
+
+.nav-underline {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background-color: white;
+    transition: all 0.3s ease-in-out;
+}
+
+@media (max-width: 768px) { /* Bootstrap's collapse breakpoint */
+    .navbar-nav {
+        text-align: center !important; /* Center text */
+    }
+
+    .navbar-nav .nav-link {
+        display: block; /* Full width links in collapsed mode */
+        text-align: center; /* Center text properly */
+    }
+
+    .navbar-nav .nav-link::after {
+        left: 50%;
+        transform: translateX(-50%);
+    }
+}
+
+
+
+.mt-4 {
+    max-width: 98% !important;
+}
+
+.bs-bars {
+    float: none !important;  
+    display: flex !important; 
+    justify-content: space-between !important;  /*  Keep buttons on the right */
+    width: 100% !important;  /* Ensure full width */
+}

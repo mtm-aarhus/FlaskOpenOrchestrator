@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1 class="text-center">Triggers</h1>
+
+    <div id="trigger_toolbar" class="d-flex flex-wrap align-items-center justify-content-between mb-2 w-100">
+        <!-- Filters (Left Side) -->
+        <div class="d-flex gap-3 flex-wrap flex-grow-1">
+            <div class="d-flex flex-column">
+                <input type="text" id="trigger-search" class="form-control w-auto" placeholder="Search" oninput="updateTriggerTableFilters()">
+            </div>
+        </div>
+    
+        <!-- Buttons (Right Side, Fully Right-Aligned) -->
+        <div class="d-flex gap-2 flex-shrink-0 align-items-center">
+            <button class="btn btn-primary" onclick="openNewTriggerModal('SINGLE')">New Single Trigger</button>
+            <button class="btn btn-primary" onclick="openNewTriggerModal('SCHEDULED')">New Scheduled Trigger</button>
+            <button class="btn btn-primary" onclick="openNewTriggerModal('QUEUE')">New Queue Trigger</button>
+        </div>
+    </div>
+    
+    <table id="trigger-table" 
+    class="table table-striped table-hover table-bordered"
+    data-toggle="table"
+    data-pagination="true"
+    data-side-pagination="server"
+    data-page-size="25"
+    data-page-list="[25, 50, 100, 1000, all]"
+
+    data-toolbar="#trigger_toolbar"
+    data-sort-name="trigger_name"
+    data-sort-order="asc"
+    data-url="{{ url_for('triggers.get_triggers_data') }}"
+    data-query-params="queryParams"
+    data-response-handler="responseHandler">
+    
+    <thead>
+        <tr>
+            <th data-field="process_status" data-sortable="true" data-formatter="formatStatusButton" data-width="20"></th>
+            <th data-field="trigger_name" data-sortable="true">Trigger Name</th>
+            <th data-field="process_name" data-sortable="true">Process Name</th>
+            <th data-field="type" data-sortable="true">Type</th>
+            <th data-field="last_run" data-sortable="true">Last Run</th>
+            <th data-field="next_run" data-sortable="true">Next Run</th>
+            <th data-field="actions" data-formatter="formatActionButtons" data-width="180">Actions</th>
+        </tr>
+    </thead>
+</table>
+
+
+
+    <!-- Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title" id="modalTitle">Edit Trigger</h2>
+                    <button type="button" class="btn-close" onclick="closeModal()"></button>
+                </div>
+
+                <div class="modal-body">
+                    <form id="editTriggerForm" onsubmit="return validateForm()">
+                        <input type="hidden" id="trigger_id">
+                        <input type="hidden" id="trigger_type"> <!-- Added to handle Create New -->
+
+                        <div class="mb-3">
+                            <label for="trigger_name" class="form-label">Trigger Name *</label>
+                            <input type="text" id="trigger_name" class="form-control" required>
+                            <div class="invalid-feedback">Please enter a trigger name.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="process_name" class="form-label">Process Name *</label>
+                            <input type="text" id="process_name" class="form-control" required>
+                            <div class="invalid-feedback">Please enter a process name.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="process_path" class="form-label">Process Path *</label>
+                            <input type="text" id="process_path" class="form-control" required>
+                            <div class="invalid-feedback">Please enter a valid Process Path.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="process_args" class="form-label">Process arguments</label>
+                            <input type="text" id="process_args" class="form-control">
+                        </div>
+
+                        <!-- Checkboxes: Is Git Repo & Is Blocking -->
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="is_git_repo">
+                            <label class="form-check-label" for="is_git_repo">Is Git Repo</label>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="is_blocking">
+                            <label class="form-check-label" for="is_blocking">Is Blocking</label>
+                        </div>
+
+                        <!-- Queue Trigger Fields -->
+                        <div id="queueTriggerFields" class="mb-3" style="display: none;">
+                            <label for="queue_name" class="form-label">Queue Name *</label>
+                            <input type="text" id="queue_name" class="form-control">
+                            <div class="invalid-feedback">Please enter a queue name.</div>
+
+                            <label for="min_batch_size" class="form-label mt-2">Min Batch Size *</label>
+                            <input type="number" id="min_batch_size" class="form-control" min="1" required>
+                            <div class="invalid-feedback">Minimum batch size must be at least 1.</div>
+                        </div>
+
+                        <!-- Scheduled Trigger Fields (Cron Expression & Next Run) -->
+                        <div id="scheduledTriggerFields" class="mb-3" style="display: none;">
+                            <label for="cron_expr" class="form-label">Cron Expression *</label>
+                            <div class="input-group">
+                                <input type="text" id="cron_expr" class="form-control" oninput="updateNextRun()" required>
+                                <button class="btn btn-outline-secondary" type="button" onclick="openCronHelp()">?</button>
+                            </div>
+                            <div class="invalid-feedback">Invalid cron expression.</div>
+                            <p id="next_run_display" class="text-muted mt-2"></p>
+                        </div>
+
+                        <!-- Single Trigger Fields (Next Run) -->
+                        <div id="singleTriggerFields" class="mb-3" style="display: none;">
+                            <label for="single_next_run" class="form-label">Next Run *</label>
+                            <input type="datetime-local" id="single_next_run" class="form-control">
+                            <div class="invalid-feedback">Please select a valid date and time.</div>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Close</button>
+                    <button type="submit" class="btn btn-primary" form="editTriggerForm">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <script src="{{ url_for('static', filename='js/triggers.js') }}"></script>
+{% endblock %}

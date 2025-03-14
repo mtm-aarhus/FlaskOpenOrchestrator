@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1 class="text-center">Logs for {{ process_name }}</h1>
+    
+    <div id="logs-toolbar" class="d-flex flex-wrap align-items-center justify-content-between mb-2 w-100">
+        <!-- Filters (Left Side) -->
+        <div class="d-flex gap-2 flex-wrap flex-grow-1">
+            <div class="d-flex flex-column">
+                <label for="log-level-filter" class="form-label">Log Level</label>
+                <select id="log-level-filter" class="form-select w-auto" onchange="updateTableFilters()">
+                    <option value="">All Levels</option>
+                </select>
+            </div>
+    
+            <div class="d-flex flex-column">
+                <label for="date-filter-start" class="form-label">From</label>
+                <input type="datetime-local" id="date-filter-start" class="form-control w-auto" onchange="updateTableFilters()">
+            </div>
+    
+            <div class="d-flex flex-column">
+                <label for="date-filter-end" class="form-label">To</label>
+                <input type="datetime-local" id="date-filter-end" class="form-control w-auto" onchange="updateTableFilters()">
+            </div>
+    
+            <div class="d-flex flex-column">
+                <label for="log-search" class="form-label">Search</label>
+                <input type="text" id="log-search" class="form-control w-auto" placeholder="Search logs" oninput="updateTableFilters()">
+            </div>
+        </div>
+    
+        <!-- Buttons (Right Side) -->
+        <div class="d-flex gap-2 flex-shrink-0">
+            <div class="d-flex flex-column align-items-end">
+                <label class="form-label invisible">Action</label>
+                <button class="btn btn-danger" onclick="deleteSelectedLogs()">Delete Selected Logs</button>
+            </div>
+            <div class="d-flex flex-column align-items-end">
+                <label class="form-label invisible">Action</label>
+                <button class="btn btn-warning" data-process="{{ process_name }}" onclick="confirmDeleteAllLogs(this)">Delete All Logs</button>
+            </div>
+        </div>
+    </div>
+    
+    
+
+    
+    <table id="logs-table" 
+        class="table table-striped table-hover"
+        data-process-name="{{ process_name }}" 
+        data-toggle="table"
+        data-pagination="true"
+        data-side-pagination="server"
+        data-page-size="25"
+        data-page-list="[25, 50, 100, 1000, all]"
+        data-toolbar="#logs-toolbar"
+        data-sort-name="log_time"
+        data-sort-order="desc"
+        data-url="{{ url_for('logs.get_logs_data', process_name=process_name) }}">
+        <thead>
+            <tr>
+                <th data-field="state" data-checkbox="true"></th>
+                <th data-field="log_time" data-sortable="true" data-formatter="formatLogTime" class="log-time-column" data-width="150">Time</th>
+                <th data-field="log_level" data-sortable="true" class="log-level-column" data-width="80">Level</th>
+                <th data-field="log_message" data-sortable="true" data-formatter="truncateText">Log Message</th>
+            </tr>
+        </thead>
+    </table>
+
+    
+    <!-- Bootstrap Modal for Showing Full Content -->
+<div class="modal fade" id="fullTextModal" tabindex="-1" aria-labelledby="fullTextModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="fullTextModalLabel">Full Field Content</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <pre id="modalContent" class="p-3 border rounded" style="white-space: pre-wrap; word-wrap: break-word; max-height: 400px; overflow-y: auto;"></pre>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button class="btn btn-primary" id="copyTextBtn"><i class="bi bi-clipboard"></i> Copy</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <script src="{{ url_for('static', filename='js/logs_detail.js') }}"></script>
+
+{% endblock %}

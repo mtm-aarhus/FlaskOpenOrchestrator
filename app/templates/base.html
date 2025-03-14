@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon-256x256.png') }}">
+        <script>
+            (function() {
+                // Check system preference
+                const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+                document.documentElement.setAttribute("data-bs-theme", prefersDark ? "dark" : "light");
+            })();
+        </script>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{{ page }}</title>
+    
+        
+        <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-icons.min.css') }}">
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-table.min.css') }}"> <!-- Bootstrap Table -->
+        <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}"></script>  <!-- jQuery for bootstrap table -->
+        <script src="{{ url_for('static', filename='js/bootstrap-table.min.js') }}"></script>  <!-- Bootstrap Table -->
+        <script src="{{ url_for('static', filename='js/tables.js') }}"></script>  <!-- Global table scripts -->
+        <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>  <!-- jQuery for bootstrap table -->
+
+
+    
+        {% if page %}
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/' + page.lower() + '.css') }}">
+        <script src="{{ url_for('static', filename='js/' + page.lower() + '.js') }}"></script>  <!-- Global js -->
+        {% endif %}
+    
+    </head>
+    
+<body>
+    <nav class="navbar navbar-expand-md navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold fs-4" href="{{ url_for('main.index') }}">PyOrchestrator</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto position-relative">
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'Home' %}active{% endif %}" href="{{ url_for('main.index') }}">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'Triggers' %}active{% endif %}" href="{{ url_for('triggers.triggers') }}">Triggers</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'Queues' %}active{% endif %}" href="{{ url_for('queues.queues') }}">Queues</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'Logs' %}active{% endif %}" href="{{ url_for('logs.logs') }}">Logs</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'Credentials' %}active{% endif %}" href="{{ url_for('credentials.credentials') }}">Credentials</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'Constants' %}active{% endif %}" href="{{ url_for('constants.constants') }}">Constants</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+    
+
+    <div class="container mt-4">
+        {% block content %}{% endblock %}
+    </div>
+
+</body>
+</html>

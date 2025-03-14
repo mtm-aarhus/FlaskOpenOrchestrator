@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1 class="text-center">Queues</h1>
+
+    <table class="table table-striped table-hover"
+        data-toggle="table"
+        data-pagination="true"
+        data-page-size="25"
+        data-page-list="[25, 50, 100, 1000, all]"
+        data-search="true"
+        data-sort-name="failed"
+        data-sort-order="desc"
+        data-side-pagination="server"
+        data-url="{{ url_for('queues.get_queues_data') }}"
+        data-row-style="rowStyle"
+        data-query-params="queryParams"
+        data-response-handler="responseHandler">
+        
+        <thead>
+            <tr>
+                <th data-field="queue_name" data-sortable="true">Queue Name</th>
+                <th data-field="NEW" data-sortable="true" data-formatter="newFormatter">New</th>
+                <th data-field="IN_PROGRESS" data-sortable="true" data-formatter="InProgressFormatter">In Progress</th>
+                <th data-field="DONE" data-sortable="true" data-formatter="doneFormatter">Done</th>
+                <th data-field="FAILED" data-sortable="true" data-formatter="failedFormatter">Failed</th>
+                <th data-field="ABANDONED" data-sortable="true" data-formatter="abandonedFormatter">Abandoned</th>
+                <th data-field="Total" data-sortable="true">Total</th>
+                <th data-field="Actions" data-formatter="actionFormatter" data-width="150">Actions</th>
+            </tr>
+        </thead>
+    </table>
+
+<script>
+    function actionFormatter(value, row, index) {
+        return row["Actions"];
+    }
+
+    function newFormatter(value, row, index) {
+        return value > 0 ? `<span class="text-info fw-bold">${value}</span>` : value;
+    }
+
+    function InProgressFormatter(value, row, index) {
+        return value > 0 ? `<span class="text-primary fw-bold">${value}</span>` : value;
+    }
+
+    function doneFormatter(value, row, index) {
+        return value > 0 ? `<span class="text-success fw-bold">${value}</span>` : value;
+    }
+
+    function failedFormatter(value, row, index) {
+        return value > 0 ? `<span class="text-danger fw-bold">${value}</span>` : value;
+    }
+
+    function abandonedFormatter(value, row, index) {
+        return value > 0 ? `<span class="text-warning fw-bold">${value}</span>` : value;
+    }
+</script>
+
+{% endblock %}

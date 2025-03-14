@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1 class="text-center">Logs</h1>
+    <table class="table table-striped table-hover"
+    data-toggle="table"
+    data-pagination="true"
+    data-page-size="25"
+    data-page-list="[25, 50, 100, 1000, all]"
+    data-search="true"
+    data-toolbar="#logs-toolbar"
+    data-sort-name="process_name"
+    data-sort-order="asc">
+
+        <thead>
+            <tr>
+                <th data-field="process_name" data-type="string" data-sortable="true">Process Name</th>
+                <th data-type="number" data-sortable="true">Trace</th>
+                <th data-type="number" data-sortable="true">Info</th>
+                <th data-type="number" data-sortable="true">Error</th>
+                <th data-type="number" data-sortable="true">Total</th>
+                <th data-width="100">View</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for process, counts in log_counts.items() %}
+            <tr>
+                <td>{{ process }}</td>
+                <td>{{ counts["TRACE"] }}</td>
+                <td>{{ counts["INFO"] }}</td>
+                <td class="text-danger fw-bold">{{ counts["ERROR"] }}</td>
+                <td class="fw-bold">{{ counts["Total"] }}</td>
+                <td>
+                    <a href="{{ url_for('logs.view_logs', process_name=process) }}" class="btn btn-primary btn-sm">View Logs</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+{% endblock %}
