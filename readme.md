@@ -1,5 +1,5 @@
 # PyOrchestrator Database Viewer
-![alt text](image.png)
+![alt text](readmeimages/image.png)
 ## Overview
 PyOrchestrator is a **Flask-based** web application designed to improve database visibility and management for process logs, queues, credentials, and system constants. It builds upon the previous solution by adding **enhanced search, sorting, and filtering capabilities** for better usability and efficiency.
 
@@ -40,33 +40,33 @@ The application provides **a structured UI** for quickly navigating through vari
    - Create new triggers via a user-friendly interface.
    - Single click start/pause for triggers with icons for an easy overview.
 
-![alt text](image-1.png)
+![alt text](readmeimages/image-1.png)
 
 3. **Queues**  
    - Overview of all queues, including statuses (**NEW, IN_PROGRESS, DONE, FAILED, ABANDONED**).
    - View specific queue items and their processing history.
    - Retry and delete buttons, aswell as a button for viewing the logs for the queue element.
 
-![alt text](image-2.png)
-![alt text](image-3.png)
+![alt text](readmeimages/image-2.png)
+![alt text](readmeimages/image-3.png)
 
 4. **Logs**  
    - View **detailed process logs**, with advanced filtering by **date, log level, and message content**.
    - Quickly locate **logs surrounding an error** for faster troubleshooting.
 
-![alt text](image-4.png)
-![alt text](image-5.png)
+![alt text](readmeimages/image-4.png)
+![alt text](readmeimages/image-5.png)
 
 5. **Credentials**  
    - Manage and update **stored credentials**.
    - View **passwords directly** in the UI by providing an **encryption key**.
 
-![alt text](image-6.png)
+![alt text](readmeimages/image-6.png)
 
 6. **Constants**  
    - Manage system-wide **constants and configurations** in the database.
 
-![alt text](image-7.png)
+![alt text](readmeimages/image-7.png)
 
 ## Hosting & Security
 
