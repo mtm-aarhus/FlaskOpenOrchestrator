@@ -114,8 +114,8 @@ Make sure these are installed in a Python virtual environment before deploying t
    Activate IIS and related features in Windows Features or Server Manager.
 
 4. **Python Installation**  
-   Grant the following permissions to Python's installation directory and the VejmanKassen project folder:
-   - **Users**: `IIS_IUSRS` or `IUSRS` and `AppPool\VejmanKassen` or `IIS AppPool\VejmanKassen`. You might have to change domain to the system which is hosting the website.
+   Grant the following permissions to Python's installation directory and the FlaskOpenOrchestrator project folder:
+   - **Users**: `IIS_IUSRS` or `IUSRS` and `AppPool\FlaskOpenOrchestrator` or `IIS AppPool\FlaskOpenOrchestrator`. You might have to change domain to the system which is hosting the website.
    - **Access Level**: Full Control
 
 ---
@@ -185,7 +185,7 @@ Create a `web.config` file in the project directory. An example `web.config` mig
         <environmentVariable name="PYTHONUNBUFFERED" value="1" />
         <environmentVariable name="PYTHONPATH" value="C:\PathTo\FlaskOpenOrchestrator" />
                 <environmentVariable name="OpenOrchestratorSQL" value="connectionstring" />
-				<environmentVariable name="OpenOrchestratorKey" value="encrpytionkey" />
+                <environmentVariable name="OpenOrchestratorKey" value="encrpytionkey" />
       </environmentVariables>
     </httpPlatform>
   </system.webServer>
