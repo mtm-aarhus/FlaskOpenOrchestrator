@@ -1,2 +1,4 @@
 web.config
 pyorchestrator_test.db
+
+__pycache__/

@@ -39,7 +39,9 @@ function openEditModal(trigger) {
     } 
     else if (trigger.type === "SINGLE") {
         document.getElementById("singleTriggerFields").style.display = "block";
-        document.getElementById('single_next_run').value = trigger.single_next_run || "";
+        let date = new Date(trigger.single_next_run);
+        let formattedDate = date.toISOString().slice(0, 16); // Extract YYYY-MM-DDTHH:MM
+        document.getElementById('single_next_run').value = formattedDate;
     }
 
     // Disable irrelevant required fields
