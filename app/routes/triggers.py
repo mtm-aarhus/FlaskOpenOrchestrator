@@ -199,7 +199,7 @@ def create_trigger():
         trigger_type = data.get("type")
 
         if trigger_type == "SINGLE":
-            next_run = datetime.strptime(data["single_next_run"], "%d-%m-%Y %H:%M")  # Fixed format
+            next_run = parse_datetime(data["single_next_run"])  # Fixed format
             db.session.add(SingleTriggers(id=new_trigger_id, next_run=next_run))
 
         elif trigger_type == "SCHEDULED":
