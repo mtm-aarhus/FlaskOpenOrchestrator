@@ -7,7 +7,7 @@ def initialize_database():
         Base = automap_base()
         Base.prepare(autoload_with=db.engine)
 
-        global Queues, Logs, Triggers, SingleTriggers, ScheduledTriggers, QueueTriggers, Credentials, Constants
+        global Queues, Logs, Triggers, SingleTriggers, ScheduledTriggers, QueueTriggers, Credentials, Constants, Schedulers
         Queues = Base.classes.get("Queues")
         Logs = Base.classes.get("Logs")
         Triggers = Base.classes.get("Triggers")
@@ -16,3 +16,4 @@ def initialize_database():
         QueueTriggers = Base.classes.get("Queue_Triggers")
         Credentials = Base.classes.get("Credentials") 
         Constants = Base.classes.get("Constants")
+        Schedulers = Base.classes.get("Schedulers")

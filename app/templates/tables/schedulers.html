@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="text-center mb-4">Schedulers</h1>
+
+<div class="table-responsive">
+  <table id="scheduler-table"
+         class="table table-striped table-hover table-bordered"
+         data-toggle="table"
+         data-pagination="true"
+         data-side-pagination="server"
+         data-page-size="25"
+         data-search="true"
+         data-sort-name="last_update"
+         data-sort-order="desc"
+         data-url="{{ url_for('schedulers.get_schedulers_data') }}"
+         data-response-handler="schedulerResponseHandler">
+      <thead>
+          <tr>
+              <th data-field="machine_name" data-formatter="formatSchedulerName" data-sortable="true">Machine Name</th>
+              <th data-field="last_update" data-sortable="true">Last Update</th>
+              <th data-field="latest_trigger" data-sortable="true">Latest Trigger</th>
+              <th data-field="latest_trigger_time" data-sortable="true">Latest Trigger Time</th>
+          </tr>
+      </thead>
+  </table>
+</div>
+
+<script>
+// Formatter for green/red filled circle before machine name
+function formatSchedulerName(value, row) {
+    const color = row.status === "online" ? "rgb(0,255,137)" : "rgb(255,80,80)";
+    const tooltip = row.status === "online" ? "Online" : "Offline";
+    return `
+        <span title="${tooltip}" class="me-1">
+            <i class="bi bi-circle-fill" style="color: ${color}; font-size: 0.9rem;"></i>
+        </span>
+        ${value}
+    `;
+}
+
+// Response handler (kept simple for consistency)
+function schedulerResponseHandler(res) {
+    return {
+        total: res.total,
+        rows: res.rows
+    };
+}
+
+// Auto-refresh the table every 10 seconds (while preserving state)
+document.addEventListener("DOMContentLoaded", function () {
+    const table = $("#scheduler-table");
+    setInterval(() => {
+        const options = table.bootstrapTable("getOptions");
+        table.bootstrapTable("refresh", {
+            silent: true,  // keeps current page, sort, and search
+            query: {
+                limit: options.pageSize,
+                offset: (options.pageNumber - 1) * options.pageSize,
+                sort: options.sortName,
+                order: options.sortOrder,
+                search: options.searchText
+            }
+        });
+    }, 10000); // 10 seconds
+});
+</script>
+{% endblock %}

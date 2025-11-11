@@ -8,6 +8,10 @@ function retrySelected() {
         alert("No queues selected.");
         return;
     }
+
+    if (!confirm(`Are you sure you want to retry ${selectedIds.length} selected queue item(s)?`)) {
+        return; // Cancel if user presses "Cancel"
+    }
     fetch("/queues/update_status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

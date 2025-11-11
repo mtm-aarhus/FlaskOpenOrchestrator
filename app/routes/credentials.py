@@ -1,15 +1,16 @@
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, session
 from datetime import datetime
 import os
 from cryptography.fernet import Fernet
 from sqlalchemy import column
 from app import db
 from app.database import Credentials 
+import hashlib, secrets
 
 bp = Blueprint("credentials", __name__, url_prefix="/credentials")
 
 # Load encryption key from environment variable
-ENCRYPTION_KEY = os.getenv("OpenOrchestratorKey")
+ENCRYPTION_KEY = os.getenv("OpenOrchestratorKey").strip()
 if not ENCRYPTION_KEY:
     raise ValueError("Missing environment variable: OpenOrchestratorKey")
 
@@ -166,3 +167,32 @@ def decrypt_password():
         return jsonify({"success": True, "password": decrypted_password})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@bp.route("/check_access_challenge", methods=["GET", "POST"])
+def check_access_challenge():
+    print("🔹 Route hit:", request.method)
+    if request.method == "GET":
+        try:
+            challenge = secrets.token_hex(16)
+            session["key_challenge"] = challenge
+            print("✅ Challenge created:", challenge)
+            return jsonify({"challenge": challenge})
+        except Exception as e:
+            print("❌ Error in GET /check_access_challenge:", e)
+            return jsonify({"error": str(e)}), 500
+
+    elif request.method == "POST":
+        data = request.json
+        client_hash = data.get("hash")
+        challenge = session.get("key_challenge")
+        print(f"POST received. hash={client_hash}, challenge={challenge}")
+        if not challenge or not client_hash:
+            return jsonify({"authorized": False, "error": "Missing challenge or hash"}), 400
+
+        server_key = os.getenv("OpenOrchestratorKey").strip()
+        expected_hash = hashlib.sha256((challenge + server_key).encode()).hexdigest()
+
+        authorized = (client_hash == expected_hash)
+        print("✅ Authorized:", authorized)
+        return jsonify({"authorized": authorized})

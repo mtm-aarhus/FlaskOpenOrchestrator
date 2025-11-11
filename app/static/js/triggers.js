@@ -15,6 +15,11 @@ function openEditModal(trigger) {
     document.getElementById('is_git_repo').checked = !!trigger.is_git_repo;
     document.getElementById('is_blocking').checked = !!trigger.is_blocking;
     document.getElementById('trigger_type').value = trigger.type;
+    document.getElementById("priority").value = trigger.priority || 0;
+    const whitelistValues = trigger.scheduler_whitelist || [];
+    document.querySelectorAll("#scheduler_whitelist input[type='checkbox']").forEach(cb => {
+        cb.checked = whitelistValues.includes(cb.value);
+    });
 
     // Hide all type-specific fields
     document.getElementById("queueTriggerFields").style.display = "none";
@@ -58,7 +63,11 @@ function openNewTriggerModal(type) {
     document.getElementById("editTriggerForm").reset();
     document.getElementById('trigger_id').value = ""; // Ensure new trigger
     document.getElementById('trigger_type').value = type; // Store type in a hidden input
-
+    document.getElementById('is_git_repo').checked = true;
+    document.getElementById("priority").value = 0;
+    document.querySelectorAll("#scheduler_whitelist input[type='checkbox']").forEach(cb => {
+        cb.checked = false;
+    });
     // Hide all type-specific fields
     document.getElementById("queueTriggerFields").style.display = "none";
     document.getElementById("scheduledTriggerFields").style.display = "none";
@@ -312,7 +321,27 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const form = document.getElementById("editTriggerForm");
 
-    // Ensure only one event listener is attached to the form
+
+    fetch("/triggers/get_scheduler_list")
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById("scheduler_whitelist");
+            container.innerHTML = "";
+
+            (data.schedulers || []).forEach(name => {
+                const id = `scheduler_${name.replace(/\s+/g, "_")}`;
+                const wrapper = document.createElement("div");
+                wrapper.classList.add("form-check", "mb-1");
+                wrapper.innerHTML = `
+                    <input class="form-check-input" type="checkbox" id="${id}" value="${name}">
+                    <label class="form-check-label" for="${id}">${name}</label>
+                `;
+                container.appendChild(wrapper);
+            });
+        })
+        .catch(err => console.error("Error loading schedulers:", err));
+    
+        // Ensure only one event listener is attached to the form
     form.removeEventListener("submit", handleTriggerFormSubmit); // Remove existing listener
     form.addEventListener("submit", handleTriggerFormSubmit); // Add a single event listener
 });
@@ -329,7 +358,11 @@ function handleTriggerFormSubmit(event) {
         process_args: document.getElementById('process_args').value,
         is_git_repo: document.getElementById('is_git_repo').checked,
         is_blocking: document.getElementById('is_blocking').checked,
-        type: document.getElementById("trigger_type").value
+        type: document.getElementById("trigger_type").value,
+        priority: parseInt(document.getElementById('priority').value) || 0,
+        scheduler_whitelist: Array.from(
+            document.querySelectorAll("#scheduler_whitelist input[type='checkbox']:checked")
+        ).map(cb => cb.value)
     };
 
     if (triggerData.type === "QUEUE") {

@@ -1,10 +1,11 @@
 from flask import Blueprint, request, jsonify, render_template
 from app import db
-from app.database import Triggers, SingleTriggers, ScheduledTriggers, QueueTriggers
+from app.database import Triggers, SingleTriggers, ScheduledTriggers, QueueTriggers, Schedulers
 from sqlalchemy.sql import column
 from cronsim import CronSim
 from datetime import datetime
 import uuid
+import json
 
 bp = Blueprint('triggers', __name__, url_prefix='/triggers')
 
@@ -35,6 +36,8 @@ def get_triggers_data():
             Triggers.type,
             Triggers.is_git_repo,
             Triggers.is_blocking,
+            Triggers.priority,
+            Triggers.scheduler_whitelist,
             SingleTriggers.next_run.label("single_next_run"),
             ScheduledTriggers.next_run.label("scheduled_next_run"),
             ScheduledTriggers.cron_expr,
@@ -82,6 +85,11 @@ def get_triggers_data():
             "type": row.type,
             "is_git_repo": row.is_git_repo,
             "is_blocking": row.is_blocking,
+            "priority": row.priority,
+            "scheduler_whitelist": (
+                json.loads(row.scheduler_whitelist) if row.scheduler_whitelist and row.scheduler_whitelist.strip().startswith('[')
+                else ([s for s in (row.scheduler_whitelist or "").split(",") if s] if row.scheduler_whitelist else [])
+            ),
             "single_next_run": row.single_next_run,
             "scheduled_next_run": row.scheduled_next_run,
             "cron_expr": row.cron_expr,
@@ -127,7 +135,8 @@ def edit_trigger():
         trigger.process_args = data.get("process_args", "")
         trigger.is_git_repo = data.get("is_git_repo", False)
         trigger.is_blocking = data.get("is_blocking", False)
-
+        trigger.priority = data.get("priority", 0)
+        trigger.scheduler_whitelist = json.dumps(data.get("scheduler_whitelist", []))
         # Handle different trigger types
         if trigger_type == "SINGLE":
             next_run = parse_datetime(data["single_next_run"])
@@ -191,7 +200,9 @@ def create_trigger():
             is_git_repo=data.get("is_git_repo", False),
             is_blocking=data.get("is_blocking", False),
             type=data.get("type"),
-            process_status="IDLE"
+            process_status="IDLE",
+            priority=data.get("priority", 1),
+           scheduler_whitelist=json.dumps(data.get("scheduler_whitelist", []))
         )
         db.session.add(new_trigger)
 
@@ -292,3 +303,19 @@ def get_next_run():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
+@bp.route("/get_scheduler_list", methods=["GET"])
+def get_scheduler_list():
+    """Return unique machine names from the Schedulers table using SQLAlchemy ORM."""
+    try:
+        schedulers = (
+            db.session.query(Schedulers.machine_name)
+            .distinct()
+            .filter(Schedulers.machine_name.isnot(None))
+            .order_by(Schedulers.machine_name.asc())
+            .all()
+        )
+        names = [s.machine_name for s in schedulers]
+        return jsonify({"schedulers": names})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

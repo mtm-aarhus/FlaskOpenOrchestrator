@@ -1,0 +1,37 @@
+<footer class="footer-fixed bg-body-tertiary border-top py-2">
+  <div class="container d-flex flex-wrap align-items-center justify-content-center gap-3 small text-muted"
+       id="scheduler-status-footer">
+    <!-- Scheduler statuses injected here -->
+  </div>
+</footer>
+
+<script>
+function updateFooterSchedulers() {
+    fetch("/schedulers/data?limit=100&offset=0")
+        .then(r => r.json())
+        .then(data => {
+            const container = document.getElementById("scheduler-status-footer");
+            if (!container) return;
+            container.innerHTML = "";
+
+            (data.rows || []).forEach(s => {
+                const color = s.status === "online" ? "rgb(0,255,137)" : "rgb(255,80,80)";
+                const tooltip = s.status === "online" ? "Online" : "Offline";
+
+                const el = document.createElement("div");
+                el.classList.add("d-flex", "align-items-center", "gap-1");
+                el.innerHTML = `
+                    <i class="bi bi-circle-fill" title="${tooltip}" style="color:${color}; font-size:0.7rem;"></i>
+                    <span>${s.machine_name}</span>
+                `;
+                container.appendChild(el);
+            });
+        })
+        .catch(err => console.error("Error fetching footer scheduler status:", err));
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    updateFooterSchedulers();
+    setInterval(updateFooterSchedulers, 100000);
+});
+</script>

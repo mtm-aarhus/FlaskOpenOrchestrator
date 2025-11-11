@@ -1,3 +1,9 @@
+let hasDecryptionAccess = null;
+
+if (sessionStorage.getItem("hasAccess") === "true") {
+    hasDecryptionAccess = true;
+}
+
 function actionFormatter(value, row, index) {
     return `
         <button class="btn btn-sm btn-primary edit-btn" onclick="openCredentialModal(${index})">
@@ -101,12 +107,67 @@ function passwordFormatter(value, row) {
     `;
 }
 
-function askDecryptionKey(name, type) {
-    let key = prompt("Enter decryption key:");
-    if (!key) return; // If user cancels, do nothing
+let challengeInProgress = false;
 
-    promptDecryptPassword(name, key, type);
+async function askDecryptionKey(name, type) {
+    if (challengeInProgress) return;
+    challengeInProgress = true;
+
+    try {
+        // Step 1️⃣: request challenge from server
+        const res = await fetch("/credentials/check_access_challenge");
+        const { challenge } = await res.json();
+        if (!challenge) throw new Error("No challenge received");
+
+        // Step 2️⃣: Try to decrypt a locally stored encrypted key (if exists)
+        let key = null;
+        if (localStorage.getItem("EncryptedOpenOrchestratorKey")) {
+            key = await decryptStoredKey("browser-session"); // your encryption password
+        }
+
+        // Step 3️⃣: If not available, ask user for key and encrypt for next time
+        if (!key) {
+            key = prompt("Enter decryption key:");
+            if (!key) return;
+            await encryptKey(key, "browser-session"); // store encrypted key
+        }
+
+        // Step 4️⃣: Compute hash(challenge + key)
+        const hashBuffer = await crypto.subtle.digest(
+            "SHA-256",
+            new TextEncoder().encode(challenge + key)
+        );
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+
+        // Step 5️⃣: Verify with server
+        const verifyRes = await fetch("/credentials/check_access_challenge", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ hash: hashHex })
+        });
+
+        const verifyData = await verifyRes.json();
+
+        if (verifyData.authorized) {
+            hasDecryptionAccess = true;
+            sessionStorage.setItem("hasAccess", "true");
+            console.log("✅ Key verified and stored securely.");
+            promptDecryptPassword(name, key, type);
+        } else {
+            alert("❌ Invalid key, please try again.");
+            // optional: clear corrupted cache
+            localStorage.removeItem("EncryptedOpenOrchestratorKey");
+        }
+
+    } catch (err) {
+        console.error("Key verification failed:", err);
+        alert("Key verification failed.");
+    } finally {
+        challengeInProgress = false;
+    }
 }
+
 
 function promptDecryptPassword(name, key, type) {
     fetch("/credentials/decrypt", {
@@ -117,23 +178,13 @@ function promptDecryptPassword(name, key, type) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            let passwordField = document.getElementById("decrypted-password");
-            let modalElement = document.getElementById("viewPasswordModal");
-
-            if (!passwordField || !modalElement) {
-                console.error("❌ Missing elements for password modal!");
-                return;
-            }
-            if (type === 'table') {
+            if (type === "table") {
+                let passwordField = document.getElementById("decrypted-password");
                 passwordField.value = data.password; 
-                let modal = new bootstrap.Modal(modalElement);
-                modal.show();  
-            }
-            else {
+                new bootstrap.Modal(document.getElementById("viewPasswordModal")).show();
+            } else {
                 document.getElementById("credential-password").value = data.password;
             }
-
-
         } else {
             alert("Error: " + data.error);
         }
@@ -302,4 +353,88 @@ function copyPassword() {
     }).catch(err => {
         console.error('Failed to copy password:', err);
     });
+}
+
+
+
+async function encryptKey(plainKey, password) {
+    const enc = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey(
+        "raw",
+        enc.encode(password),
+        { name: "PBKDF2" },
+        false,
+        ["deriveKey"]
+    );
+
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const derivedKey = await crypto.subtle.deriveKey(
+        {
+            name: "PBKDF2",
+            salt: salt,
+            iterations: 100000,
+            hash: "SHA-256",
+        },
+        keyMaterial,
+        { name: "AES-GCM", length: 256 },
+        true,
+        ["encrypt", "decrypt"]
+    );
+
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ciphertext = await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv },
+        derivedKey,
+        enc.encode(plainKey)
+    );
+
+    // Store everything together (salt + iv + ciphertext)
+    const encryptedData = {
+        salt: Array.from(salt),
+        iv: Array.from(iv),
+        data: Array.from(new Uint8Array(ciphertext))
+    };
+    localStorage.setItem("EncryptedOpenOrchestratorKey", JSON.stringify(encryptedData));
+}
+
+async function decryptStoredKey(password) {
+    const stored = localStorage.getItem("EncryptedOpenOrchestratorKey");
+    if (!stored) return null;
+
+    const { salt, iv, data } = JSON.parse(stored);
+    const enc = new TextEncoder();
+    const dec = new TextDecoder();
+
+    const keyMaterial = await crypto.subtle.importKey(
+        "raw",
+        enc.encode(password),
+        { name: "PBKDF2" },
+        false,
+        ["deriveKey"]
+    );
+
+    const derivedKey = await crypto.subtle.deriveKey(
+        {
+            name: "PBKDF2",
+            salt: new Uint8Array(salt),
+            iterations: 100000,
+            hash: "SHA-256",
+        },
+        keyMaterial,
+        { name: "AES-GCM", length: 256 },
+        true,
+        ["decrypt"]
+    );
+
+    try {
+        const decrypted = await crypto.subtle.decrypt(
+            { name: "AES-GCM", iv: new Uint8Array(iv) },
+            derivedKey,
+            new Uint8Array(data)
+        );
+        return dec.decode(decrypted);
+    } catch {
+        alert("Failed to decrypt stored key — wrong password?");
+        return null;
+    }
 }

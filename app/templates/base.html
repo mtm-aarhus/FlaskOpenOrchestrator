@@ -32,10 +32,10 @@
     
     </head>
     
-<body>
+<body class="d-flex flex-column min-vh-100">
     <nav class="navbar navbar-expand-md navbar-dark bg-primary">
         <div class="container-fluid">
-            <a class="navbar-brand fw-bold fs-4" href="{{ url_for('main.index') }}">PyOrchestrator</a>
+           <!-- <a class="navbar-brand fw-bold fs-4" href="{{ url_for('main.index') }}">PyOrchestrator</a> -->
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -59,6 +59,9 @@
                     <li class="nav-item">
                         <a class="nav-link {% if page == 'Constants' %}active{% endif %}" href="{{ url_for('constants.constants') }}">Constants</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'Schedulers' %}active{% endif %}" href="{{ url_for('schedulers.schedulers') }}">Schedulers</a>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -66,9 +69,11 @@
     
     
 
-    <div class="container mt-4">
-        {% block content %}{% endblock %}
-    </div>
-
+    <main class="flex-fill">
+        <div class="container mt-4">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+    {% include "footer.html" %}
 </body>
 </html>
