@@ -132,7 +132,7 @@ async function askDecryptionKey(name, type) {
             await encryptKey(key, "browser-session"); // store encrypted key
         }
 
-        // Step 4️⃣: Compute hash(challenge + key)
+        // Step : Compute hash(challenge + key)
         const hashBuffer = await crypto.subtle.digest(
             "SHA-256",
             new TextEncoder().encode(challenge + key)
@@ -152,10 +152,10 @@ async function askDecryptionKey(name, type) {
         if (verifyData.authorized) {
             hasDecryptionAccess = true;
             sessionStorage.setItem("hasAccess", "true");
-            console.log("✅ Key verified and stored securely.");
+            console.log("Key verified and stored securely.");
             promptDecryptPassword(name, key, type);
         } else {
-            alert("❌ Invalid key, please try again.");
+            alert("Invalid key, please try again.");
             // optional: clear corrupted cache
             localStorage.removeItem("EncryptedOpenOrchestratorKey");
         }

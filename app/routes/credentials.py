@@ -171,15 +171,12 @@ def decrypt_password():
 
 @bp.route("/check_access_challenge", methods=["GET", "POST"])
 def check_access_challenge():
-    print("🔹 Route hit:", request.method)
     if request.method == "GET":
         try:
             challenge = secrets.token_hex(16)
             session["key_challenge"] = challenge
-            print("✅ Challenge created:", challenge)
             return jsonify({"challenge": challenge})
         except Exception as e:
-            print("❌ Error in GET /check_access_challenge:", e)
             return jsonify({"error": str(e)}), 500
 
     elif request.method == "POST":
@@ -194,5 +191,4 @@ def check_access_challenge():
         expected_hash = hashlib.sha256((challenge + server_key).encode()).hexdigest()
 
         authorized = (client_hash == expected_hash)
-        print("✅ Authorized:", authorized)
         return jsonify({"authorized": authorized})
