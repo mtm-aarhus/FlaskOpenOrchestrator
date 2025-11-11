@@ -15,10 +15,7 @@ def create_app():
         SQLITE_DB_PATH = os.path.join(os.getcwd(), "pyorchestrator_test.db")
         app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{SQLITE_DB_PATH}'
     else:
-        app.config['SQLALCHEMY_DATABASE_URI'] = "mssql+pyodbc://srvsql29/PyOrchestrator_test?driver=ODBC+Driver+17+for+SQL+Server"
-
-        #app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('OpenOrchestratorSQL')
-
+        app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('OpenOrchestratorSQL')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     db.init_app(app)
 
