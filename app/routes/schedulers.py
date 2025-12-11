@@ -40,7 +40,6 @@ def get_schedulers_data():
     for s in schedulers:
         delta = now - s.last_update if s.last_update else timedelta.max
         is_online = delta < timedelta(minutes=5)
-        print(type(s.last_update), s.last_update)
         rows.append({
             "machine_name": s.machine_name,
             "status": "online" if is_online else "offline",
