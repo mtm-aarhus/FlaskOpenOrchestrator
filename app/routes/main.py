@@ -1,8 +1,8 @@
 from flask import Blueprint, render_template, url_for, jsonify
 from datetime import datetime, timedelta
-from sqlalchemy import cast, Date
+from sqlalchemy import cast, Date, exists, select
 from app import db
-from app.database import Logs, Queues, Triggers  
+from app.database import Logs, Queues, Triggers, log_viewed_t, queue_handled_t
 
 bp = Blueprint("main", __name__)
 
@@ -24,14 +24,28 @@ def index():
                 return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
         return value
 
-    # Fetch 5 most recent error logs
+    # Fetch 5 most recent error logs (exclude VIEWED)
+    viewed_exists = (
+        exists(
+            select(1)
+            .select_from(log_viewed_t)
+            .where(log_viewed_t.c.log_id == Logs.id)
+        )
+        .correlate(Logs)
+    )
+
     recent_errors = (
         db.session.query(Logs)
-        .filter(Logs.log_level.ilike("ERROR"), Logs.log_time >= time_range)
+        .filter(
+            Logs.log_level.ilike("ERROR"),
+            Logs.log_time >= time_range,
+            ~viewed_exists
+        )
         .order_by(Logs.log_time.desc())
         .limit(5)
         .all()
     )
+
 
     error_logs = [
         {
@@ -47,14 +61,28 @@ def index():
         for log in recent_errors
     ]
 
-    #  Fetch 5 most recent failed queue elements
+    # Fetch 5 most recent failed queue elements (exclude HANDLED)
+    handled_exists = (
+        exists(
+            select(1)
+            .select_from(queue_handled_t)
+            .where(queue_handled_t.c.queue_id == Queues.id)
+        )
+        .correlate(Queues)
+    )
+
     recent_failed_queues = (
         db.session.query(Queues)
-        .filter(Queues.status.ilike("FAILED"))
+        .filter(
+            Queues.status.ilike("FAILED"),
+            ~handled_exists
+        )
         .order_by(Queues.end_date.desc())
         .limit(5)
         .all()
     )
+
+
 
     failed_queues = [
         {
@@ -102,6 +130,15 @@ def index():
 def queue_performance():
     """Return queue success vs failed counts for the last 4 days."""
     now = datetime.now()
+    handled_exists = (
+        exists(
+            select(1)
+            .select_from(queue_handled_t)
+            .where(queue_handled_t.c.queue_id == Queues.id)
+        )
+        .correlate(Queues)
+    )
+
     days = [(now - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(4, -1, -1)]
 
     success_counts = []
@@ -120,8 +157,10 @@ def queue_performance():
         failed_count = db.session.query(Queues).filter(
             Queues.status.ilike("FAILED"),
             Queues.created_date >= start_of_day,
-            Queues.created_date < end_of_day
+            Queues.created_date < end_of_day,
+            ~handled_exists
         ).count()
+
 
         success_counts.append(success_count)
         failed_counts.append(failed_count)

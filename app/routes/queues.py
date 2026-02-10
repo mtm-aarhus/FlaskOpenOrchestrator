@@ -1,8 +1,11 @@
 from flask import Blueprint, render_template, request, jsonify, url_for
 from app import db
-from app.database import Queues, QueueTriggers, Triggers
+from app.database import Queues, QueueTriggers, Triggers, queue_handled_t
 from sqlalchemy.sql import column
 from datetime import datetime
+from app.helper_tables import mark_queue_handled, mark_log_viewed
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select, exists, and_, func, case
 
 bp = Blueprint('queues', __name__, url_prefix='/queues')
 
@@ -13,54 +16,90 @@ def queues():
 
 @bp.route('/data')
 def get_queues_data():
-    """Return queue overview data with counts for different statuses."""
     offset = request.args.get("offset", 0, type=int)
     limit = request.args.get("limit", None, type=int)
     sort = request.args.get("sort", "FAILED")
     order = request.args.get("order", "desc")
     search = request.args.get("search", "", type=str)
 
-    order_by = column(sort).desc() if order.lower() == "desc" else column(sort).asc()
-
-    base_query = db.session.query(Queues.queue_name)
-
-    if search:
-        base_query = base_query.filter(Queues.queue_name.ilike(f"%{search}%"))
-    query = (
-        base_query.with_entities(
-            Queues.queue_name,
-            db.func.sum(db.case((Queues.status == "NEW", 1), else_=0)).label("NEW"),
-            db.func.sum(db.case((Queues.status == "IN_PROGRESS", 1), else_=0)).label("IN_PROGRESS"),
-            db.func.sum(db.case((Queues.status == "DONE", 1), else_=0)).label("DONE"),
-            db.func.sum(db.case((Queues.status == "FAILED", 1), else_=0)).label("FAILED"),
-            db.func.sum(db.case((Queues.status == "ABANDONED", 1), else_=0)).label("ABANDONED"),
-            db.func.count().label("Total"),
-        )
-        .group_by(Queues.queue_name)
-        .order_by(order_by)
-        .offset(offset)
-        .limit(limit)
+    # 1) Base-filter (som i logs.py: enkel query, ingen subqueries i aggregater)
+    q = db.session.query(
+        Queues.queue_name,
+        Queues.status,
+        db.func.count().label("cnt"),
     )
 
-    total_count = base_query.distinct().count()
-    results = query.all()
+    if search:
+        q = q.filter(Queues.queue_name.ilike(f"%{search}%"))
 
-    formatted_rows = [
-        {
-            "queue_name": row.queue_name,
-            "NEW": row.NEW,
-            "IN_PROGRESS": row.IN_PROGRESS,
-            "DONE": row.DONE,
-            "FAILED": row.FAILED,
-            "ABANDONED": row.ABANDONED,
-            "Total": row.Total,
-            "Actions": f'<a href="{url_for("queues.queues_detail", queue_name=row.queue_name)}" class="btn btn-primary btn-sm">View Queue Items</a>',
-        }
-        for row in results
-    ]
+    status_counts = (
+        q.group_by(Queues.queue_name, Queues.status)
+         .all()
+    )
 
-    return jsonify({"total": total_count, "rows": formatted_rows})
+    # 2) Separat query: hvor mange FAILED er markeret handled pr queue
+    #    (join på helper-tabellen og group_by queue_name)
+    handled_failed_counts = (
+        db.session.query(
+            Queues.queue_name,
+            db.func.count().label("handled_failed"),
+        )
+        .join(queue_handled_t, queue_handled_t.c.queue_id == Queues.id)
+        .filter(Queues.status == "FAILED")
+        .group_by(Queues.queue_name)
+        .all()
+    )
 
+    handled_failed_by_queue = {qn: c for qn, c in handled_failed_counts}
+
+    # 3) Saml som dict (samme idé som logs.py)
+    queue_counts = {}
+    for queue_name, status, cnt in status_counts:
+        if queue_name not in queue_counts:
+            queue_counts[queue_name] = {
+                "NEW": 0,
+                "IN_PROGRESS": 0,
+                "DONE": 0,
+                "FAILED": 0,
+                "ABANDONED": 0,
+                "Total": 0,
+            }
+        s = (status or "").upper()
+        if s in queue_counts[queue_name]:
+            queue_counts[queue_name][s] += cnt
+        queue_counts[queue_name]["Total"] += cnt
+
+    # 4) Træk handled FAILED fra FAILED
+    for queue_name, handled_failed in handled_failed_by_queue.items():
+        if queue_name in queue_counts:
+            queue_counts[queue_name]["FAILED"] = max(
+                0,
+                queue_counts[queue_name]["FAILED"] - handled_failed
+            )
+
+    # 5) Sort + paginate i Python (enkelt og stabilt)
+    rows = []
+    for queue_name, counts in queue_counts.items():
+        rows.append({
+            "queue_name": queue_name,
+            **counts,
+            "Actions": f'<a href="{url_for("queues.queues_detail", queue_name=queue_name)}" '
+                       f'class="btn btn-primary btn-sm">View Queue Items</a>',
+        })
+
+    reverse = (order.lower() == "desc")
+    if sort not in {"queue_name", "NEW", "IN_PROGRESS", "DONE", "FAILED", "ABANDONED", "Total"}:
+        sort = "FAILED"
+
+    rows.sort(key=lambda r: (r[sort] if sort != "queue_name" else (r["queue_name"] or "")), reverse=reverse)
+
+    total_count = len(rows)
+    if limit is not None:
+        rows = rows[offset: offset + limit]
+    else:
+        rows = rows[offset:]
+
+    return jsonify({"total": total_count, "rows": rows})
 
 @bp.route('/<queue_name>')
 def queues_detail(queue_name):
@@ -92,10 +131,20 @@ def get_queue_detail_data(queue_name):
 
     base_query = db.session.query(Queues).filter(Queues.queue_name == queue_name)
 
+    handled_exists = exists(
+        select(1).select_from(queue_handled_t).where(queue_handled_t.c.queue_id == Queues.id)
+    )
+
     if filter_status:
-        base_query = base_query.filter(Queues.status == filter_status)
+        if filter_status == "HANDLED":
+            base_query = base_query.filter(Queues.status == "FAILED", handled_exists)
+        elif filter_status == "FAILED":
+            base_query = base_query.filter(Queues.status == "FAILED", ~handled_exists)
+        else:
+            base_query = base_query.filter(Queues.status == filter_status)
+
     if start_date and end_date:
-        base_query =     base_query = base_query.filter(Queues.start_date >= start_date, Queues.end_date <= end_date)
+        base_query = base_query.filter(Queues.start_date >= start_date, Queues.end_date <= end_date)
     if search:
         base_query = base_query.filter(
             (Queues.message.ilike(f"%{search}%")) |
@@ -114,12 +163,21 @@ def get_queue_detail_data(queue_name):
         .all()
     )
 
+    result_ids = [r.id for r in results]
+    handled_ids = set()
+    if result_ids:
+        handled_ids = set(
+            db.session.execute(
+                select(queue_handled_t.c.queue_id).where(queue_handled_t.c.queue_id.in_(result_ids))
+            ).scalars().all()
+        )
+
     formatted_rows = []
     for row in results:
         row_dict = {
             "id": row.id,
             "queue_name": row.queue_name,
-            "status": row.status,
+            "status": ("HANDLED" if (row.status == "FAILED" and row.id in handled_ids) else row.status),
             "data": row.data,
             "reference": row.reference,
             "created_date": row.created_date,
@@ -174,6 +232,19 @@ def get_queue_status(queue_name):
     # Ensure we return a flat list instead of a list of tuples
     status_list = [status[0] for status in statuses if status[0] is not None]
 
+    # Tilføj HANDLED som filtervalg, hvis der findes handled rows for denne queue
+    has_handled = db.session.execute(
+        select(1)
+        .select_from(queue_handled_t)
+        .join(Queues, queue_handled_t.c.queue_id == Queues.id)
+        .where(Queues.queue_name == queue_name)
+        .limit(1)
+    ).first() is not None
+
+    if has_handled and "HANDLED" not in status_list:
+        status_list.append("HANDLED")
+
+
     return jsonify(status_list)
 
 
@@ -211,3 +282,50 @@ def get_process_name():
 
     return jsonify({"success": True, "process_name": trigger.process_name})
 
+
+@bp.route("/toggle_handled", methods=["POST"])
+def toggle_handled():
+    data = request.get_json(silent=True) or {}
+    ids = data.get("ids") or []
+    if not ids:
+        return jsonify({"success": False, "error": "No IDs provided"}), 400
+
+    try:
+        # Kun FAILED kan toggles
+        failed_ids = [
+            r[0] for r in db.session.query(Queues.id)
+            .filter(Queues.id.in_(ids), Queues.status == "FAILED")
+            .all()
+        ]
+        if not failed_ids:
+            return jsonify({"success": False, "error": "Only failed queue elements can be toggled."}), 400
+
+        existing = set(
+            db.session.execute(
+                select(queue_handled_t.c.queue_id).where(queue_handled_t.c.queue_id.in_(failed_ids))
+            ).scalars().all()
+        )
+
+        to_insert = [qid for qid in failed_ids if qid not in existing]
+        to_delete = [qid for qid in failed_ids if qid in existing]
+
+        # Insert nye
+        for qid in to_insert:
+            mark_queue_handled(qid)
+
+        # Delete eksisterende
+        if to_delete:
+            db.session.execute(
+                queue_handled_t.delete().where(queue_handled_t.c.queue_id.in_(to_delete))
+            )
+
+        db.session.commit()
+        return jsonify({
+            "success": True,
+            "marked": len(to_insert),
+            "unmarked": len(to_delete),
+            "ignored_non_failed": len(ids) - len(failed_ids)
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500

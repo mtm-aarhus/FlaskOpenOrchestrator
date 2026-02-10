@@ -6,20 +6,17 @@ function getSelectedIds() {
 function formatLogTime(value) {
     if (!value) return '';
 
-    // Convert timestamp to a Date object
     const date = new Date(value);
 
-    // Format as "DD-MM-YY HH:mm:ss"
     const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-based
-    const year = String(date.getFullYear()).slice(-2); // Get last 2 digits of the year
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = String(date.getFullYear()).slice(-2);
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
     const seconds = String(date.getSeconds()).padStart(2, '0');
 
     return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
 }
-
 
 function deleteSelectedLogs() {
     let selectedIds = getSelectedIds();
@@ -35,15 +32,21 @@ function deleteSelectedLogs() {
     }).then(response => response.json()).then(data => {
         if (data.success) {
             alert("Logs deleted successfully!");
-            $("#logs-table").bootstrapTable("refresh"); // Reload table instead of page
+            $("#logs-table").bootstrapTable("refresh");
         } else {
             alert("Failed to delete selected logs.");
         }
     });
 }
 
+// CHANGED: gør den robust hvis knappen ikke findes / ikke har process
 function confirmDeleteAllLogs(button) {
-    let processName = button.getAttribute("data-process");  // Get process name from data-attribute
+    let processName = button?.getAttribute("data-process");
+
+    if (!processName) {
+        alert("Delete all is only available for a specific process.");
+        return;
+    }
 
     let userInput = prompt(`Type "delete" to permanently delete ALL logs for process: ${processName}`);
 
@@ -52,79 +55,76 @@ function confirmDeleteAllLogs(button) {
         return;
     }
 
-    fetch(`/logs/${encodeURIComponent(processName)}/delete_all`, {  // Ensure process_name is properly encoded
+    fetch(`/logs/${encodeURIComponent(processName)}/delete_all`, {
         method: "POST",
         headers: { "Content-Type": "application/json" }
     }).then(response => response.json())
       .then(data => {
           if (data.success) {
               alert("All logs deleted successfully!");
-              $("#logs-table").bootstrapTable("refresh"); // Refresh the table
+              $("#logs-table").bootstrapTable("refresh");
           } else {
               alert("Failed to delete logs: " + (data.error || "Unknown error"));
           }
       });
 }
 
+// CHANGED: brug /logs/all/log_levels når processName er tom
 async function fetchLogLevels(processName) {
-    let response = await fetch(`/logs/${encodeURIComponent(processName)}/log_levels`);
+    const url = processName
+        ? `/logs/${encodeURIComponent(processName)}/log_levels`
+        : `/logs/all/log_levels`;
+
+    let response = await fetch(url);
     let levels = await response.json();
 
     let levelFilter = document.getElementById("log-level-filter");
-    levelFilter.innerHTML = '<option value="">All Levels</option>'; // Reset dropdown
-    
+    levelFilter.innerHTML = '<option value="">All Levels</option>';
+
     levels.forEach(level => {
         let option = document.createElement("option");
         option.value = level;
         option.textContent = level;
         levelFilter.appendChild(option);
     });
-
 }
 
-
+// CHANGED: fix "logsFirstRun" bug + understøt all-view
 document.addEventListener("DOMContentLoaded", async function() {
-    const processName = document.getElementById("logs-table").dataset.processName;
-    let levelFilter = document.getElementById("log-level-filter");
-    let startDateInput = document.getElementById("date-filter-start");
-    let endDateInput = document.getElementById("date-filter-end");
+    const tableEl = document.getElementById("logs-table");
+    if (!tableEl) return;
 
-    let isFirstRun = sessionStorage.getItem("logsFirstRun") === false;
-    if (!isFirstRun) {
-        await fetchLogLevels(processName);
+    const processName = tableEl.dataset.processName || "";
 
-        let urlParams = new URLSearchParams(window.location.search);
+    const levelFilter = document.getElementById("log-level-filter");
+    const startDateInput = document.getElementById("date-filter-start");
+    const endDateInput = document.getElementById("date-filter-end");
 
-        if (urlParams.has("filter_level")) {
-            let filterLevel = urlParams.get("filter_level");
-            let optionExists = Array.from(levelFilter.options).some(opt => opt.value === filterLevel);
+    await fetchLogLevels(processName);
 
-            if (optionExists) {
-                levelFilter.value = filterLevel;
-            } 
-        }
+    const urlParams = new URLSearchParams(window.location.search);
 
-        if (urlParams.has("start_date")) {
-            startDateInput.value = urlParams.get("start_date").replace(" ", "T");
-        }
-
-        if (urlParams.has("end_date")) {
-            endDateInput.value = urlParams.get("end_date").replace(" ", "T");
-        } else {
-            let now = new Date();
-            let timezoneOffset = now.getTimezoneOffset() * 60000;
-            let systemTime = new Date(now.getTime() - timezoneOffset);
-            endDateInput.value = systemTime.toISOString().slice(0, 16);
-        }
-
-        updateTableFilters(); // Call only after ensuring filters are set
-
-        // Mark as initialized so it doesn't reapply filters on reload
-        sessionStorage.setItem("logsFirstRun", "false");
-
-        // Remove query parameters from the URL without reloading
-        window.history.replaceState({}, document.title, window.location.pathname);
+    if (urlParams.has("filter_level")) {
+        const filterLevel = urlParams.get("filter_level");
+        const optionExists = Array.from(levelFilter.options).some(opt => opt.value === filterLevel);
+        if (optionExists) levelFilter.value = filterLevel;
     }
+
+    if (urlParams.has("start_date")) {
+        startDateInput.value = urlParams.get("start_date").replace(" ", "T");
+    }
+
+    if (urlParams.has("end_date")) {
+        endDateInput.value = urlParams.get("end_date").replace(" ", "T");
+    } else {
+        const now = new Date();
+        const timezoneOffset = now.getTimezoneOffset() * 60000;
+        const systemTime = new Date(now.getTime() - timezoneOffset);
+        endDateInput.value = systemTime.toISOString().slice(0, 16);
+    }
+
+    updateTableFilters();
+    window.history.replaceState({}, document.title, window.location.pathname);
 });
 
 function updateTableFilters() {
@@ -137,26 +137,25 @@ function updateTableFilters() {
         filter_level: level,
         start_date: startDate,
         end_date: endDate,
-        search: search, 
+        search: search,
     };
 
     $("#logs-table").bootstrapTable('refresh', {
         query: queryParams,
-        pageNumber: 1  
+        pageNumber: 1
     });
 }
 
-
 function truncateText(value, row, index) {
-    if (!value) return '-'; // Handle empty values
+    if (!value) return '-';
 
-    let maxLength = 175; // Set fixed truncation length
-    if (value.length <= maxLength) return value; // If short, show full text
+    let maxLength = 175;
+    if (value.length <= maxLength) return value;
 
-    let shortText = value.substring(0, maxLength) + "..."; // Truncated text
+    let shortText = value.substring(0, maxLength) + "...";
 
     return `
-        <span class="truncated-text" style="cursor: pointer;" 
+        <span class="truncated-text" style="cursor: pointer;"
               data-full="${encodeURIComponent(value)}">
             ${shortText}
         </span>
@@ -166,25 +165,20 @@ function truncateText(value, row, index) {
     `;
 }
 
-// Show full content in modal when clicking
 $(document).on("click", ".view-full-text, .truncated-text", function (event) {
     event.preventDefault();
 
     let fullText = decodeURIComponent($(this).data("full"));
 
-    // Check if it's JSON and format it properly
     try {
         let jsonObject = JSON.parse(fullText);
-        fullText = JSON.stringify(jsonObject, null, 4); // Pretty-print JSON
-    } catch (e) {
-        // Not JSON, show as-is
-    }
+        fullText = JSON.stringify(jsonObject, null, 4);
+    } catch (e) {}
 
     $("#modalContent").text(fullText);
     $("#fullTextModal").modal("show");
 });
 
-// Copy content to clipboard
 $("#copyTextBtn").click(function () {
     let text = $("#modalContent").text();
     navigator.clipboard.writeText(text).then(() => {
@@ -192,3 +186,19 @@ $("#copyTextBtn").click(function () {
     });
 });
 
+function toggleViewedSelected() {
+    const ids = $('#logs-table').bootstrapTable('getSelections').map(r => r.id);
+    if (!ids.length) return;
+
+    fetch("/logs/toggle_viewed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids })
+    })
+    .then(r => r.json())
+    .then(() => {
+        $('#logs-table').bootstrapTable('uncheckAll');
+        $('#logs-table').bootstrapTable('refresh', { silent: true });
+        updateTableFilters();
+    });
+}

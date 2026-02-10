@@ -258,3 +258,39 @@ function statusFormatter(value, row) {
 
     `;
 }
+
+function toggleHandledSelected() {
+    const ids = $('#queues-table').bootstrapTable('getSelections').map(r => r.id);
+
+    if (!ids.length) {
+        alert("No queues selected.");
+        return;
+    }
+
+    fetch("/queues/toggle_handled", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids })
+    })
+    .then(async (r) => {
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok || data.success === false) {
+            throw new Error(data.error || `HTTP ${r.status}`);
+        }
+        return data;
+    })
+    .then(() => {
+        // drop selection, så vi ikke står på gamle rows
+        $('#queues-table').bootstrapTable('uncheckAll');
+
+        // tvungen refresh uden cache
+        $('#queues-table').bootstrapTable('refresh', { silent: true });
+
+        // reapply filtre (sætter query params)
+        updateTableFilters();
+    })
+    .catch(err => {
+        alert("Toggle handled failed: " + err.message);
+        console.error(err);
+    });
+}
