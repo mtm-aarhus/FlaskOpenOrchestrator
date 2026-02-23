@@ -279,9 +279,22 @@ def get_all_logs_data():
         end_date = datetime.strptime(end_date, "%Y-%m-%dT%H:%M")
 
     query = db.session.query(Logs)
+    viewed_exists = (
+        exists(
+            select(1)
+            .select_from(log_viewed_t)
+            .where(log_viewed_t.c.log_id == Logs.id)
+        )
+        .correlate(Logs)
+    )
 
     if filter_level:
-        query = query.filter(Logs.log_level == filter_level)
+        if filter_level == "VIEWED":
+            query = query.filter(Logs.log_level == "ERROR", viewed_exists)
+        elif filter_level == "ERROR":
+            query = query.filter(Logs.log_level == "ERROR", ~viewed_exists)
+        else:
+            query = query.filter(Logs.log_level == filter_level)
     if start_date and end_date:
         query = query.filter(Logs.log_time.between(start_date, end_date))
     if search:
@@ -299,11 +312,24 @@ def get_all_logs_data():
     total_count = query.count()
     rows = query.offset(offset).limit(limit).all()
 
+    row_ids = [r.id for r in rows]
+    viewed_ids = set()
+    if row_ids:
+        viewed_ids = set(
+            db.session.execute(
+                select(log_viewed_t.c.log_id).where(log_viewed_t.c.log_id.in_(row_ids))
+            ).scalars().all()
+        )
+
     formatted_rows = [
         {
             "id": row.id,
-            "log_time": row.log_time.strftime("%Y-%m-%d %H:%M:%S"),
-            "log_level": row.log_level,
+            "log_time": row.log_time.strftime("%Y-%m-%d %H:%M:%S") if row.log_time else "",
+            "log_level": (
+                "VIEWED"
+                if (row.log_level == "ERROR" and row.id in viewed_ids)
+                else row.log_level
+            ),
             "process_name": row.process_name,
             "log_message": row.log_message,
         }
@@ -311,6 +337,7 @@ def get_all_logs_data():
     ]
 
     return jsonify({"total": total_count, "rows": formatted_rows})
+
 
 @bp.route("/all/log_levels")
 def get_all_log_levels():
