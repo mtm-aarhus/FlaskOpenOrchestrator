@@ -338,7 +338,6 @@ def get_all_logs_data():
 
     return jsonify({"total": total_count, "rows": formatted_rows})
 
-
 @bp.route("/all/log_levels")
 def get_all_log_levels():
     levels = (

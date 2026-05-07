@@ -8,7 +8,7 @@ def initialize_database():
         Base = automap_base()
         Base.prepare(autoload_with=db.engine)
 
-        global Queues, Logs, Triggers, SingleTriggers, ScheduledTriggers, QueueTriggers, Credentials, Constants, Schedulers
+        global Queues, Logs, Triggers, SingleTriggers, ScheduledTriggers, QueueTriggers, Credentials, Constants, Schedulers, Jobs
 
         Queues = Base.classes.get("Queues")
         Logs = Base.classes.get("Logs")
@@ -16,9 +16,12 @@ def initialize_database():
         SingleTriggers = Base.classes.get("Single_Triggers")
         ScheduledTriggers = Base.classes.get("Scheduled_Triggers")
         QueueTriggers = Base.classes.get("Queue_Triggers")
-        Credentials = Base.classes.get("Credentials") 
+        Credentials = Base.classes.get("Credentials")
         Constants = Base.classes.get("Constants")
         Schedulers = Base.classes.get("Schedulers")
+        # OO 3.0: Jobs table (start_time/end_time/status per run, linked from Logs.job_id).
+        # Triggers.git_branch and Logs.job_id are picked up automatically via automap reflection.
+        Jobs = Base.classes.get("Jobs")
 
         # Hjælpetabeller: IKKE automap (ingen relations, ingen antagelser)
         global queue_handled_t, log_viewed_t

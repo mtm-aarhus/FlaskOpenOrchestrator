@@ -39,6 +39,7 @@
             <th data-field="process_status" data-sortable="true" data-formatter="formatStatusButton" data-width="20"></th>
             <th data-field="trigger_name" data-sortable="true">Trigger Name</th>
             <th data-field="process_name" data-sortable="true">Process Name</th>
+            <th data-field="git_branch" data-sortable="true" data-formatter="formatGitBranch" data-width="110">Git Branch</th>
             <th data-field="type" data-sortable="true">Type</th>
             <th data-field="last_run" data-sortable="true">Last Run</th>
             <th data-field="next_run" data-sortable="true">Next Run</th>
@@ -93,6 +94,12 @@
                             <label class="form-check-label" for="is_git_repo">Is Git Repo</label>
                         </div>
 
+                        <div id="gitBranchField" class="mb-3" style="display: none;">
+                            <label for="git_branch" class="form-label">Git Branch / Tag</label>
+                            <input type="text" id="git_branch" class="form-control" placeholder="e.g. main, develop, v1.2.0" maxlength="100">
+                            <small class="text-muted">Leave blank to use the repo's default branch.</small>
+                        </div>
+
                         <div class="form-check mb-3">
                             <input class="form-check-input" type="checkbox" id="is_blocking">
                             <label class="form-check-label" for="is_blocking">Is Blocking</label>
@@ -128,7 +135,7 @@
 
                         <!-- Priority -->
                         <div class="mb-3">
-                            <label for="priority" class="form-label">Priority</label>
+                            <label for="priority" class="form-label">Priority (lowest :0 highest:10 )</label>
                             <input type="number" id="priority" class="form-control" min="0" value="0">
                         </div>
 

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1 class="text-center mb-4">Statistics</h1>
+
+    <div class="row g-4">
+
+        <!-- Savings calculator -->
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header"><strong>Time saved per queue</strong></div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <label for="savings-queue" class="form-label">Queue</label>
+                        <select id="savings-queue" class="form-select"></select>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label for="savings-from" class="form-label">From</label>
+                            <input type="datetime-local" id="savings-from" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="savings-to" class="form-label">To</label>
+                            <input type="datetime-local" id="savings-to" class="form-control">
+                        </div>
+                    </div>
+                    <div class="mb-2 mt-2">
+                        <label for="savings-minutes" class="form-label">Minutes saved per element</label>
+                        <input type="number" id="savings-minutes" class="form-control" min="0" step="0.1" value="5">
+                    </div>
+                    <button class="btn btn-primary mt-2" onclick="calculateSavings()">Calculate</button>
+
+                    <div id="savings-result" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scheduler health -->
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header"><strong>Scheduler health</strong></div>
+                <div class="card-body">
+                    <div id="scheduler-health"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Downtime / run summary (last N days) -->
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <strong>Run summary (last <span id="downtime-days-label">30</span> days)</strong>
+                    <div class="d-flex gap-2 align-items-center">
+                        <label for="downtime-days" class="form-label mb-0">Days</label>
+                        <input type="number" id="downtime-days" class="form-control form-control-sm" style="width: 90px" min="1" max="365" value="30" onchange="loadDowntime()">
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="downtime-table"></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+{% endblock %}

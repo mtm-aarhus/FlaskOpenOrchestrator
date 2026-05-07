@@ -14,6 +14,8 @@ function openEditModal(trigger) {
     document.getElementById('process_args').value = trigger.process_args || "";
     document.getElementById('is_git_repo').checked = !!trigger.is_git_repo;
     document.getElementById('is_blocking').checked = !!trigger.is_blocking;
+    document.getElementById('git_branch').value = trigger.git_branch || "";
+    toggleGitBranchVisibility();
     document.getElementById('trigger_type').value = trigger.type;
     document.getElementById("priority").value = trigger.priority || 0;
     const whitelistValues = trigger.scheduler_whitelist || [];
@@ -64,6 +66,8 @@ function openNewTriggerModal(type) {
     document.getElementById('trigger_id').value = ""; // Ensure new trigger
     document.getElementById('trigger_type').value = type; // Store type in a hidden input
     document.getElementById('is_git_repo').checked = true;
+    document.getElementById('git_branch').value = "";
+    toggleGitBranchVisibility();
     document.getElementById("priority").value = 0;
     document.querySelectorAll("#scheduler_whitelist input[type='checkbox']").forEach(cb => {
         cb.checked = false;
@@ -222,6 +226,12 @@ function deleteTrigger(triggerId) {
 }
 
 
+function formatGitBranch(value, row) {
+    if (!row.is_git_repo) return '<span class="text-muted">-</span>';
+    if (!value) return '<span class="text-muted fst-italic">default</span>';
+    return `<code>${value}</code>`;
+}
+
 function formatActionButtons(value, row) {
     return `
         <button class="btn btn-primary btn-sm" data-trigger='${JSON.stringify(row)}' onclick="openEditModalFromButton(this)">
@@ -237,39 +247,88 @@ function formatActionButtons(value, row) {
 
 function formatStatusButton(value, row) {
     let iconClass = "";
+    let extraIconClass = "";  // e.g. bi-spin
     let textColor = "";
     let tooltip = "";
-    let newStatus = ""; // The status we will change to on click
-    let customStyle = ""; // Custom CSS for precise color
+    let newStatus = "";
+    let customStyle = "";
+    let onClick = "";
 
-    if (row.process_status === "PAUSED") {
-        iconClass = "bi-pause-circle"; // Bootstrap pause icon
-        textColor = "text-warning"; // Yellow color
+    const status = row.process_status;
+
+    if (status === "PAUSED") {
+        iconClass = "bi-pause-circle";
+        textColor = "text-warning";
         tooltip = "Paused - Click to Start";
-        newStatus = "IDLE"; // Change to IDLE when clicked
-    } else if (row.process_status === "FAILED") {
-        iconClass = "bi-x-circle"; // Bootstrap error icon
-        textColor = "text-danger"; // Red color
+        newStatus = "IDLE";
+    } else if (status === "PAUSING") {
+        iconClass = "bi-pause-circle";
+        textColor = "text-warning";
+        tooltip = "Pausing - waiting for scheduler";
+        // No click action while transitioning.
+    } else if (status === "FAILED") {
+        iconClass = "bi-x-circle";
+        textColor = "text-danger";
         tooltip = "Failed - Click to Restart";
-        newStatus = "IDLE"; // Allow restarting
-    } else if (row.type === "SINGLE" && row.process_status === "DONE") {
-        iconClass = "bi-play-circle"; // Bootstrap play icon
-        textColor = "text-primary"; // Blue for play button
+        newStatus = "IDLE";
+    } else if (status === "KILLING") {
+        iconClass = "bi-x-octagon";
+        textColor = "text-warning";
+        tooltip = "Killing - waiting for scheduler";
+    } else if (status === "KILLED") {
+        iconClass = "bi-slash-circle";
+        textColor = "text-secondary";
+        tooltip = "Killed - Click to Restart";
+        newStatus = "IDLE";
+    } else if (row.type === "SINGLE" && status === "DONE") {
+        iconClass = "bi-play-circle";
+        textColor = "text-primary";
         tooltip = "Ready to Run - Click to Start";
         newStatus = "IDLE";
+    } else if (status === "RUNNING") {
+        iconClass = "bi-arrow-repeat";
+        extraIconClass = "bi-spin";
+        customStyle = "color: rgb(0, 153, 255);";
+        tooltip = "Running - Click to Kill";
+        onClick = `confirmKillTrigger('${row.id}', '${(row.trigger_name || '').replace(/'/g, "\\'")}')`;
     } else {
-        iconClass = "bi-power"; // Generic power icon for active triggers
-        textColor = ""; // No default Bootstrap color (we use a custom one)
-        customStyle = "color: rgb(0, 255, 137);"; // Exact green color
+        // IDLE / DONE (non-SINGLE) / unknown -> "active"
+        iconClass = "bi-power";
+        customStyle = "color: rgb(0, 255, 137);";
         tooltip = "Active - Click to Pause";
-        newStatus = "PAUSED"; // Change to PAUSED when clicked
+        newStatus = "PAUSED";
     }
 
+    if (!onClick && newStatus) {
+        onClick = `toggleStatus('${row.id}', '${newStatus}')`;
+    }
+
+    const disabled = onClick ? "" : "disabled";
     return `
         <button class="btn btn-link ${textColor}" style="border: none; background: transparent; ${customStyle}"
-                onclick="toggleStatus('${row.id}', '${newStatus}')" title="${tooltip}">
-            <i class="bi ${iconClass} fs-4"></i>
+                ${onClick ? `onclick="${onClick}"` : ""} ${disabled} title="${tooltip}">
+            <i class="bi ${iconClass} ${extraIconClass} fs-4"></i>
         </button>`;
+}
+
+function confirmKillTrigger(triggerId, triggerName) {
+    if (!confirm(`Kill running trigger "${triggerName}"? The scheduler will terminate the process tree.`)) {
+        return;
+    }
+    fetch("/triggers/update_status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: triggerId, new_status: "KILLING" })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            $('#trigger-table').bootstrapTable("refresh");
+        } else {
+            alert("Failed to send kill: " + (data.error || "unknown error"));
+        }
+    })
+    .catch(err => alert("Failed to send kill: " + err));
 }
 
 function toggleStatus(triggerId, newStatus) {
@@ -312,11 +371,21 @@ function openEditModalFromButton(button) {
 }
 
 
+function toggleGitBranchVisibility() {
+    const wrapper = document.getElementById("gitBranchField");
+    const checked = document.getElementById("is_git_repo").checked;
+    if (wrapper) wrapper.style.display = checked ? "block" : "none";
+}
+
 document.addEventListener("DOMContentLoaded", function () {
     // Attach event listener to cron input field
     const cronField = document.getElementById("cron_expr");
     if (cronField) {
         cronField.addEventListener("input", updateNextRun);
+    }
+    const gitRepoCheckbox = document.getElementById("is_git_repo");
+    if (gitRepoCheckbox) {
+        gitRepoCheckbox.addEventListener("change", toggleGitBranchVisibility);
     }
 
     const form = document.getElementById("editTriggerForm");
@@ -357,6 +426,7 @@ function handleTriggerFormSubmit(event) {
         process_path: document.getElementById('process_path').value,
         process_args: document.getElementById('process_args').value,
         is_git_repo: document.getElementById('is_git_repo').checked,
+        git_branch: document.getElementById('git_branch').value.trim() || null,
         is_blocking: document.getElementById('is_blocking').checked,
         type: document.getElementById("trigger_type").value,
         priority: parseInt(document.getElementById('priority').value) || 0,

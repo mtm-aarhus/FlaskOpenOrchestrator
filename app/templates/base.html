@@ -19,8 +19,10 @@
         <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-icons.min.css') }}">
         <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-table.min.css') }}"> <!-- Bootstrap Table -->
         <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}"></script>  <!-- jQuery for bootstrap table -->
+        <!-- tables.js loaded BEFORE bootstrap-table so its $(document).ready runs first
+             and can apply persisted settings before bootstrap-table auto-inits the tables. -->
+        <script src="{{ url_for('static', filename='js/tables.js') }}"></script>
         <script src="{{ url_for('static', filename='js/bootstrap-table.min.js') }}"></script>  <!-- Bootstrap Table -->
-        <script src="{{ url_for('static', filename='js/tables.js') }}"></script>  <!-- Global table scripts -->
         <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>  <!-- jQuery for bootstrap table -->
 
 
@@ -54,6 +56,9 @@
                         <a class="nav-link {% if page == 'Logs' %}active{% endif %}" href="{{ url_for('logs.logs') }}">Logs</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {% if page == 'Jobs' %}active{% endif %}" href="{{ url_for('jobs.jobs') }}">Jobs</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {% if page == 'Credentials' %}active{% endif %}" href="{{ url_for('credentials.credentials') }}">Credentials</a>
                     </li>
                     <li class="nav-item">
@@ -61,6 +66,9 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if page == 'Schedulers' %}active{% endif %}" href="{{ url_for('schedulers.schedulers') }}">Schedulers</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if page == 'Stats' %}active{% endif %}" href="{{ url_for('stats.stats') }}">Statistics</a>
                     </li>
                 </ul>
             </div>

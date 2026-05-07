@@ -68,5 +68,14 @@
 /* Reduce padding & margin for buttons in status column */
 td[style="width: 20px;"] .btn {
     --bs-btn-padding-x: 0rem !important; /* Smaller padding */
-    --bs-btn-padding-y: 0rem !important; 
+    --bs-btn-padding-y: 0rem !important;
+}
+
+.bi-spin {
+    display: inline-block;
+    animation: bi-spin 1.6s linear infinite;
+}
+@keyframes bi-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }

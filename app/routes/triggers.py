@@ -35,6 +35,7 @@ def get_triggers_data():
             Triggers.process_args,
             Triggers.type,
             Triggers.is_git_repo,
+            Triggers.git_branch,
             Triggers.is_blocking,
             Triggers.priority,
             Triggers.scheduler_whitelist,
@@ -84,6 +85,7 @@ def get_triggers_data():
             "process_args": row.process_args,
             "type": row.type,
             "is_git_repo": row.is_git_repo,
+            "git_branch": row.git_branch,
             "is_blocking": row.is_blocking,
             "priority": row.priority,
             "scheduler_whitelist": (
@@ -134,6 +136,7 @@ def edit_trigger():
         trigger.process_path = data["process_path"]
         trigger.process_args = data.get("process_args", "")
         trigger.is_git_repo = data.get("is_git_repo", False)
+        trigger.git_branch = data.get("git_branch") or None
         trigger.is_blocking = data.get("is_blocking", False)
         trigger.priority = data.get("priority", 0)
         trigger.scheduler_whitelist = json.dumps(data.get("scheduler_whitelist", []))
@@ -198,6 +201,7 @@ def create_trigger():
             process_path=data["process_path"],
             process_args=data.get("process_args", ""),
             is_git_repo=data.get("is_git_repo", False),
+            git_branch=data.get("git_branch") or None,
             is_blocking=data.get("is_blocking", False),
             type=data.get("type"),
             process_status="IDLE",

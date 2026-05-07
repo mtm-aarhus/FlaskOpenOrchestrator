@@ -34,6 +34,10 @@
         <div class="d-flex gap-2 flex-shrink-0">
             <div class="d-flex flex-column align-items-end">
                 <label class="form-label invisible">Action</label>
+                <button class="btn btn-primary" onclick="openCreateQueueModal()"><i class="bi bi-plus-lg"></i> New Element</button>
+            </div>
+            <div class="d-flex flex-column align-items-end">
+                <label class="form-label invisible">Action</label>
                 <button class="btn btn-primary" onclick="retrySelected()">Retry Selected</button>
             </div>
             <div class="d-flex flex-column align-items-end">
@@ -74,9 +78,85 @@
                 <th data-field="end_date" data-sortable="true">End Date</th>
                 <th data-field="message" data-sortable="true" data-formatter="truncateText">Message</th>
                 <th data-field="created_by" data-sortable="true" data-formatter="truncateText">Created By</th>
+                <th data-field="actions" data-formatter="formatQueueRowActions" data-width="80">Actions</th>
             </tr>
         </thead>
     </table>
+
+    <!-- Edit / Create Queue Element Modal (same modal, switches mode by ID presence) -->
+    <div class="modal fade" id="editQueueModal" tabindex="-1" aria-hidden="true" data-queue-name="{{ queue_name }}">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editQueueModalTitle">Edit Queue Element</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editQueueForm">
+                        <input type="hidden" id="edit_queue_id">
+
+                        <div class="row g-2">
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label text-muted small">ID</label>
+                                <input type="text" id="edit_id_display" class="form-control form-control-sm" readonly>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label text-muted small">Created by</label>
+                                <input type="text" id="edit_created_by" class="form-control form-control-sm" readonly>
+                            </div>
+                        </div>
+
+                        <div class="row g-2">
+                            <div class="col-md-4 mb-2">
+                                <label for="edit_status" class="form-label">Status</label>
+                                <select id="edit_status" class="form-select">
+                                    <option value="NEW">NEW</option>
+                                    <option value="IN_PROGRESS">IN_PROGRESS</option>
+                                    <option value="DONE">DONE</option>
+                                    <option value="FAILED">FAILED</option>
+                                    <option value="ABANDONED">ABANDONED</option>
+                                </select>
+                            </div>
+                            <div class="col-md-8 mb-2">
+                                <label for="edit_reference" class="form-label">Reference</label>
+                                <input type="text" id="edit_reference" class="form-control" maxlength="100">
+                            </div>
+                        </div>
+
+                        <div class="mb-2">
+                            <label for="edit_data" class="form-label">Data</label>
+                            <textarea id="edit_data" class="form-control font-monospace" rows="6"></textarea>
+                            <small class="text-muted">JSON is auto-prettified on load. Plain text also OK.</small>
+                        </div>
+
+                        <div class="mb-2">
+                            <label for="edit_message" class="form-label">Message</label>
+                            <input type="text" id="edit_message" class="form-control" maxlength="1000">
+                        </div>
+
+                        <div class="row g-2">
+                            <div class="col-md-4 mb-2">
+                                <label for="edit_created_date" class="form-label">Created</label>
+                                <input type="datetime-local" id="edit_created_date" class="form-control">
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <label for="edit_start_date" class="form-label">Start</label>
+                                <input type="datetime-local" id="edit_start_date" class="form-control">
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <label for="edit_end_date" class="form-label">End</label>
+                                <input type="datetime-local" id="edit_end_date" class="form-control">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveQueueElement()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Bootstrap Modal for Showing Full Content -->
 <div class="modal fade" id="fullTextModal" tabindex="-1" aria-labelledby="fullTextModalLabel" aria-hidden="true">

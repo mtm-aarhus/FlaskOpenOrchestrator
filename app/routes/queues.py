@@ -1,3 +1,5 @@
+import uuid
+
 from flask import Blueprint, render_template, request, jsonify, url_for
 from app import db
 from app.database import Queues, QueueTriggers, Triggers, queue_handled_t
@@ -246,6 +248,106 @@ def get_queue_status(queue_name):
 
 
     return jsonify(status_list)
+
+
+def _parse_optional_dt(value):
+    if not value:
+        return None
+    # Accept "YYYY-MM-DDTHH:MM" (datetime-local) or already-formatted "DD-MM-YYYY HH:MM".
+    for fmt in ("%Y-%m-%dT%H:%M", "%d-%m-%Y %H:%M", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return datetime.strptime(value, fmt)
+        except ValueError:
+            continue
+    raise ValueError(f"Unrecognized datetime format: {value}")
+
+
+@bp.route('/element/<element_id>')
+def get_queue_element(element_id):
+    """Return a single queue element for the edit modal."""
+    row = db.session.query(Queues).filter_by(id=element_id).first()
+    if not row:
+        return jsonify({"success": False, "error": "Not found"}), 404
+    return jsonify({
+        "success": True,
+        "element": {
+            "id": str(row.id),
+            "queue_name": row.queue_name,
+            "status": row.status,
+            "data": row.data,
+            "reference": row.reference,
+            "message": row.message,
+            "created_by": row.created_by,
+            "created_date": row.created_date.strftime("%Y-%m-%dT%H:%M") if row.created_date else None,
+            "start_date": row.start_date.strftime("%Y-%m-%dT%H:%M") if row.start_date else None,
+            "end_date": row.end_date.strftime("%Y-%m-%dT%H:%M") if row.end_date else None,
+        },
+    })
+
+
+@bp.route('/create_element', methods=['POST'])
+def create_queue_element():
+    """Create a new queue element. Matches OO 3.0 popup behavior."""
+    data = request.json or {}
+    queue_name = data.get("queue_name")
+    if not queue_name:
+        return jsonify({"success": False, "error": "queue_name is required"}), 400
+
+    try:
+        new_id = str(uuid.uuid4()).upper()
+        created_date = _parse_optional_dt(data.get("created_date")) or datetime.now()
+        new_row = Queues(
+            id=new_id,
+            queue_name=queue_name,
+            status=data.get("status") or "NEW",
+            data=data.get("data") or None,
+            reference=data.get("reference") or None,
+            message=data.get("message") or None,
+            created_by=data.get("created_by") or "FlaskOrchestrator UI",
+            created_date=created_date,
+            start_date=_parse_optional_dt(data.get("start_date")),
+            end_date=_parse_optional_dt(data.get("end_date")),
+        )
+        db.session.add(new_row)
+        db.session.commit()
+        return jsonify({"success": True, "id": new_id})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@bp.route('/edit_element', methods=['POST'])
+def edit_queue_element():
+    """Edit fields on a single queue element. Matches OO 3.0 popup behavior."""
+    data = request.json or {}
+    element_id = data.get("id")
+    if not element_id:
+        return jsonify({"success": False, "error": "id is required"}), 400
+
+    row = db.session.query(Queues).filter_by(id=element_id).first()
+    if not row:
+        return jsonify({"success": False, "error": "Queue element not found"}), 404
+
+    try:
+        if "status" in data:
+            row.status = data["status"]
+        if "data" in data:
+            row.data = data["data"]
+        if "reference" in data:
+            row.reference = data["reference"]
+        if "message" in data:
+            row.message = data["message"]
+        if "created_date" in data:
+            row.created_date = _parse_optional_dt(data["created_date"])
+        if "start_date" in data:
+            row.start_date = _parse_optional_dt(data["start_date"])
+        if "end_date" in data:
+            row.end_date = _parse_optional_dt(data["end_date"])
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @bp.route('/delete', methods=['POST'])

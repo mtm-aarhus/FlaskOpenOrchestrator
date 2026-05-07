@@ -114,25 +114,25 @@ async function askDecryptionKey(name, type) {
     challengeInProgress = true;
 
     try {
-        // Step 1️⃣: request challenge from server
+        // Step 1️: request challenge from server
         const res = await fetch("/credentials/check_access_challenge");
         const { challenge } = await res.json();
         if (!challenge) throw new Error("No challenge received");
 
-        // Step 2️⃣: Try to decrypt a locally stored encrypted key (if exists)
+        // Step 2️: Try to decrypt a locally stored encrypted key (if exists)
         let key = null;
         if (localStorage.getItem("EncryptedOpenOrchestratorKey")) {
             key = await decryptStoredKey("browser-session"); // your encryption password
         }
 
-        // Step 3️⃣: If not available, ask user for key and encrypt for next time
+        // Step 3️: If not available, ask user for key and encrypt for next time
         if (!key) {
             key = prompt("Enter decryption key:");
             if (!key) return;
             await encryptKey(key, "browser-session"); // store encrypted key
         }
 
-        // Step : Compute hash(challenge + key)
+        // Step 4: Compute hash(challenge + key)
         const hashBuffer = await crypto.subtle.digest(
             "SHA-256",
             new TextEncoder().encode(challenge + key)
@@ -140,7 +140,7 @@ async function askDecryptionKey(name, type) {
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 
-        // Step 5️⃣: Verify with server
+        // Step 5️: Verify with server
         const verifyRes = await fetch("/credentials/check_access_challenge", {
             method: "POST",
             headers: { "Content-Type": "application/json" },

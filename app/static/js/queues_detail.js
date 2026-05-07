@@ -236,6 +236,110 @@ function formatDateToISO(dateString, addMinute = false) {
     return formattedDate;
 }
 
+function formatQueueRowActions(value, row) {
+    return `
+        <button class="btn btn-sm btn-outline-primary" onclick="openEditQueueModal('${row.id}')" title="Edit element">
+            <i class="bi bi-pencil"></i>
+        </button>`;
+}
+
+async function openEditQueueModal(elementId) {
+    const res = await fetch(`/queues/element/${encodeURIComponent(elementId)}`);
+    const data = await res.json();
+    if (!data.success) {
+        alert("Could not load element: " + (data.error || "unknown"));
+        return;
+    }
+    const el = data.element;
+
+    document.getElementById("editQueueModalTitle").innerText = "Edit Queue Element";
+    document.getElementById("edit_queue_id").value = el.id;
+    document.getElementById("edit_id_display").value = el.id;
+    document.getElementById("edit_created_by").value = el.created_by || "";
+
+    // Status — handle the synthetic "HANDLED" the table shows by mapping back to FAILED.
+    const realStatus = el.status === "HANDLED" ? "FAILED" : el.status;
+    document.getElementById("edit_status").value = realStatus || "NEW";
+
+    document.getElementById("edit_reference").value = el.reference || "";
+    document.getElementById("edit_message").value = el.message || "";
+
+    // Pretty-print data if it's JSON.
+    let displayData = el.data || "";
+    try {
+        displayData = JSON.stringify(JSON.parse(displayData), null, 2);
+    } catch (_) { /* not JSON - leave as-is */ }
+    document.getElementById("edit_data").value = displayData;
+
+    document.getElementById("edit_created_date").value = el.created_date || "";
+    document.getElementById("edit_start_date").value = el.start_date || "";
+    document.getElementById("edit_end_date").value = el.end_date || "";
+
+    new bootstrap.Modal(document.getElementById("editQueueModal")).show();
+}
+
+function openCreateQueueModal() {
+    // Same modal as edit, but blank — empty edit_queue_id signals create mode to saveQueueElement.
+    document.getElementById("editQueueModalTitle").innerText = "New Queue Element";
+    document.getElementById("edit_queue_id").value = "";
+    document.getElementById("edit_id_display").value = "(will be auto-generated)";
+    document.getElementById("edit_created_by").value = "FlaskOrchestrator UI";
+
+    document.getElementById("edit_status").value = "NEW";
+    document.getElementById("edit_reference").value = "";
+    document.getElementById("edit_message").value = "";
+    document.getElementById("edit_data").value = "";
+
+    // Default created_date to "now" in local datetime-local format.
+    const now = new Date();
+    const tzOffsetMs = now.getTimezoneOffset() * 60000;
+    const localIso = new Date(now.getTime() - tzOffsetMs).toISOString().slice(0, 16);
+    document.getElementById("edit_created_date").value = localIso;
+    document.getElementById("edit_start_date").value = "";
+    document.getElementById("edit_end_date").value = "";
+
+    new bootstrap.Modal(document.getElementById("editQueueModal")).show();
+}
+
+async function saveQueueElement() {
+    const id = document.getElementById("edit_queue_id").value;
+    const isCreate = !id;
+
+    const payload = {
+        status: document.getElementById("edit_status").value,
+        reference: document.getElementById("edit_reference").value,
+        message: document.getElementById("edit_message").value,
+        data: document.getElementById("edit_data").value,
+        created_date: document.getElementById("edit_created_date").value,
+        start_date: document.getElementById("edit_start_date").value,
+        end_date: document.getElementById("edit_end_date").value,
+    };
+
+    let url;
+    if (isCreate) {
+        // Read queue_name from the modal's data attribute (set in the template).
+        payload.queue_name = document.getElementById("editQueueModal").dataset.queueName;
+        payload.created_by = document.getElementById("edit_created_by").value;
+        url = "/queues/create_element";
+    } else {
+        payload.id = id;
+        url = "/queues/edit_element";
+    }
+
+    const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!data.success) {
+        alert((isCreate ? "Create" : "Save") + " failed: " + (data.error || "unknown"));
+        return;
+    }
+    bootstrap.Modal.getInstance(document.getElementById("editQueueModal")).hide();
+    $('#queues-table').bootstrapTable('refresh', { silent: true });
+}
+
 function statusFormatter(value, row) {
     if (!row.start_date || !row.end_date) {
         return value; // If no start or end date, just return status text
