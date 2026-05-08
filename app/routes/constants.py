@@ -24,7 +24,8 @@ def get_constants():
 
     order_by = column(sort).desc() if order.lower() == "desc" else column(sort).asc()
 
-    query = db.session.query(Constants)
+    # Hide FlaskOrchestrator's internal stats settings from the Constants listing.
+    query = db.session.query(Constants).filter(~Constants.name.like("flaskstats.%"))
 
     if search:
         query = query.filter(

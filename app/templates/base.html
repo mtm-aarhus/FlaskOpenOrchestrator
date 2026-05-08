@@ -35,47 +35,114 @@
     </head>
     
 <body class="d-flex flex-column min-vh-100">
-    <nav class="navbar navbar-expand-md navbar-dark bg-primary">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top shadow-sm">
         <div class="container-fluid">
-           <!-- <a class="navbar-brand fw-bold fs-4" href="{{ url_for('main.index') }}">PyOrchestrator</a> -->
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="{{ url_for('main.index') }}">
+                <img src="{{ url_for('static', filename='favicon-256x256.png') }}" alt="" class="navbar-brand-icon">
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto position-relative">
                     <li class="nav-item">
-                        <a class="nav-link {% if page == 'Home' %}active{% endif %}" href="{{ url_for('main.index') }}">Home</a>
+                        <a class="nav-link {% if page == 'Home' %}active{% endif %}" href="{{ url_for('main.index') }}">
+                            <i class="bi bi-house-door me-1"></i>Home
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if page == 'Triggers' %}active{% endif %}" href="{{ url_for('triggers.triggers') }}">Triggers</a>
+                        <a class="nav-link {% if page == 'Triggers' %}active{% endif %}" href="{{ url_for('triggers.triggers') }}">
+                            <i class="bi bi-lightning me-1"></i>Triggers
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if page == 'Queues' %}active{% endif %}" href="{{ url_for('queues.queues') }}">Queues</a>
+                        <a class="nav-link {% if page == 'Queues' %}active{% endif %}" href="{{ url_for('queues.queues') }}">
+                            <i class="bi bi-collection me-1"></i>Queues
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if page == 'Logs' %}active{% endif %}" href="{{ url_for('logs.logs') }}">Logs</a>
+                        <a class="nav-link {% if page == 'Logs' %}active{% endif %}" href="{{ url_for('logs.logs') }}">
+                            <i class="bi bi-journal-text me-1"></i>Logs
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if page == 'Jobs' %}active{% endif %}" href="{{ url_for('jobs.jobs') }}">Jobs</a>
+                        <a class="nav-link {% if page == 'Jobs' %}active{% endif %}" href="{{ url_for('jobs.jobs') }}">
+                            <i class="bi bi-list-task me-1"></i>Jobs
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if page == 'Credentials' %}active{% endif %}" href="{{ url_for('credentials.credentials') }}">Credentials</a>
+                        <a class="nav-link {% if page == 'Schedulers' %}active{% endif %}" href="{{ url_for('schedulers.schedulers') }}">
+                            <i class="bi bi-hdd-network me-1"></i>Schedulers
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if page == 'Constants' %}active{% endif %}" href="{{ url_for('constants.constants') }}">Constants</a>
+                        <a class="nav-link {% if page == 'Credentials' %}active{% endif %}" href="{{ url_for('credentials.credentials') }}">
+                            <i class="bi bi-key me-1"></i>Credentials
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if page == 'Schedulers' %}active{% endif %}" href="{{ url_for('schedulers.schedulers') }}">Schedulers</a>
+                        <a class="nav-link {% if page == 'Constants' %}active{% endif %}" href="{{ url_for('constants.constants') }}">
+                            <i class="bi bi-braces me-1"></i>Constants
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if page == 'Stats' %}active{% endif %}" href="{{ url_for('stats.stats') }}">Statistics</a>
+                        <a class="nav-link {% if page == 'Stats' %}active{% endif %}" href="{{ url_for('stats.stats') }}">
+                            <i class="bi bi-bar-chart me-1"></i>Stats
+                        </a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#prefsModal" title="Preferences">
+                            <i class="bi bi-gear"></i><span class="d-lg-none ms-1">Preferences</span>
+                        </a>
                     </li>
                 </ul>
             </div>
         </div>
     </nav>
+
+    <!-- Preferences modal -->
+    <div class="modal fade" id="prefsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-gear me-2"></i>Preferences</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted">
+                        Default rows-per-page per table. Saved in this browser only.
+                    </p>
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th>Table</th>
+                                <th style="width: 130px;">Default rows</th>
+                            </tr>
+                        </thead>
+                        <tbody id="prefs-table-body"></tbody>
+                    </table>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="resetAllPrefs()">
+                        <i class="bi bi-arrow-counterclockwise"></i> Reset all
+                    </button>
+                    <div>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" onclick="savePrefs()">
+                            <i class="bi bi-save"></i> Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     
     
+
+    <!-- Global toast container (used by window.showToast) -->
+    <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1100;"></div>
 
     <main class="flex-fill">
         <div class="container mt-4">

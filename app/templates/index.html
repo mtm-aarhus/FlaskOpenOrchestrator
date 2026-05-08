@@ -1,124 +1,155 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container-fluid mt-4">
-    <div class="row gx-4 gy-3">
-        <!-- Error Logs Table -->
-        <div class="col-lg-6 col-md-12 d-flex flex-column">
-            <h4>Recent Error Logs</h4>
-            <div class="table-responsive w-100">
-                <table class="table table-striped w-100">
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>Process</th>
-                            <th>Message</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for error in error_logs %}
-                        <tr>
-                            <td>{{ error.time }}</td>
-                            <td class="truncate-text" title="{{ error.process }}">{{ error.process }}</td>
-                            <td class="truncate-text" title="{{ error.message }}">{{ error.message }}</td>
-                            <td>
-                                <a href="{{ error.link }}" class="btn btn-sm btn-primary">View Logs</a>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="4" class="text-center text-muted">No recent error logs found</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+<div class="home-dashboard">
 
-        <!-- Failed Queue Elements Table -->
-        <div class="col-lg-6 col-md-12 d-flex flex-column">
-            <h4>Recently Failed Queue Elements</h4>
-            <div class="table-responsive w-100">
-                <table class="table table-striped w-100">
-                    <thead>
-                        <tr>
-                            <th>Time of failure</th>
-                            <th>Queue</th>
-                            <th>Reference</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for queue in failed_queues %}
-                        <tr>
-                            <td>{{ queue.failed }}</td>
-                            <td class="truncate-text" title="{{ queue.queue_name }}">{{ queue.queue_name }}</td>
-                            <td class="truncate-text" title="{{ queue.reference }}">{{ queue.reference }}</td>
-                            <td>
-                                <a href="{{ queue.link }}" class="btn btn-sm btn-primary">View Queue</a>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="4" class="text-center text-muted">No recently failed queue elements</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+    <!-- KPI cards (color is red/yellow ONLY when there's something to act on; neutral otherwise) -->
+    {% set kpi_neutral = "kpi-neutral border" %}
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <a href="{{ url_for('triggers.triggers', status_filter='FAILED') }}"
+               class="card text-decoration-none kpi-card {{ 'text-bg-danger' if counts.failed_triggers > 0 else kpi_neutral }} h-100">
+                <div class="card-body text-center py-3">
+                    <i class="bi bi-x-octagon-fill fs-3"></i>
+                    <div class="display-6 fw-bold mt-1">{{ counts.failed_triggers }}</div>
+                    <div class="small text-uppercase opacity-75">Failed triggers</div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-lg-3">
+            <a href="{{ url_for('queues.queues', has_failed='true') }}"
+               class="card text-decoration-none kpi-card {{ 'text-bg-warning' if counts.failed_queues_total > 0 else kpi_neutral }} h-100">
+                <div class="card-body text-center py-3">
+                    <i class="bi bi-collection-fill fs-3"></i>
+                    <div class="display-6 fw-bold mt-1">{{ counts.failed_queues_total }}</div>
+                    <div class="small text-uppercase opacity-75">Failed queue elements</div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-lg-3">
+            <a href="{{ url_for('logs.view_all_logs', filter_level='ERROR') }}"
+               class="card text-decoration-none kpi-card {{ 'text-bg-secondary' if counts.recent_errors > 0 else kpi_neutral }} h-100">
+                <div class="card-body text-center py-3">
+                    <i class="bi bi-exclamation-triangle-fill fs-3"></i>
+                    <div class="display-6 fw-bold mt-1">{{ counts.recent_errors }}</div>
+                    <div class="small text-uppercase opacity-75">Recent errors</div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-lg-3">
+            <a href="{{ url_for('queues.queues', has_done='true', start_date=today_iso, end_date=tomorrow_iso) }}"
+               class="card text-decoration-none kpi-card {{ 'text-bg-success' if counts.done_today > 0 else kpi_neutral }} h-100">
+                <div class="card-body text-center py-3">
+                    <i class="bi bi-check2-circle fs-3"></i>
+                    <div class="display-6 fw-bold mt-1">{{ counts.done_today }}</div>
+                    <div class="small text-uppercase opacity-75">Done today</div>
+                </div>
+            </a>
         </div>
     </div>
 
-    <div class="row gx-4 gy-3">
-        <!-- Failed Triggers -->
-        <div class="col-lg-6 col-md-12 d-flex flex-column">
-            <h4>Failed Triggers</h4>
-            <div class="table-responsive w-100">
-                <table class="table table-striped w-100">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Process</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for trigger in failed_triggers %}
-                        <tr>
-                            <td class="truncate-text" title="{{ trigger.name }}">{{ trigger.name }}</td>
-                            <td class="truncate-text" title="{{ trigger.process }}">{{ trigger.process }}</td>
-                            <td title="{{ trigger.process_status }}">{{ trigger.process_status }}</td>
-                            <td>
-                                <a href="{{ trigger.link }}" class="btn btn-sm btn-primary">View Triggers</a>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="4" class="text-center text-muted">No failed triggers</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+    <!-- Performance charts -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header">
+                    <strong><i class="bi bi-check-circle"></i> Queue successes (last 4 days)</strong>
+                </div>
+                <div class="card-body" style="height: 240px;">
+                    <canvas id="queuePerformanceSuccessChart"></canvas>
+                </div>
             </div>
         </div>
-
-        <!-- Queue Performance Charts -->
-        <div class="col-lg-6 col-md-12 d-flex flex-column">
-            <h4>Queue Performance (Last 4 Days)</h4>
-
-            <div class="d-flex flex-column flex-grow-1 w-100">
-                <div class="mb-3 w-100">
-                    <canvas id="queuePerformanceFailedChart" style="height:180px;"></canvas>
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header">
+                    <strong><i class="bi bi-x-circle"></i> Queue failures (last 4 days)</strong>
                 </div>
-
-                <div class="w-100">
-                    <canvas id="queuePerformanceSuccessChart" style="height:180px;"></canvas>
+                <div class="card-body" style="height: 240px;">
+                    <canvas id="queuePerformanceFailedChart"></canvas>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Three alert lists side-by-side -->
+    <div class="row g-3">
+        <!-- Recent errors -->
+        <div class="col-12 col-lg-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <strong><i class="bi bi-exclamation-triangle text-warning"></i> Recent errors</strong>
+                    <a href="{{ url_for('logs.view_all_logs', filter_level='ERROR') }}" class="small">View all</a>
+                </div>
+                <ul class="list-group list-group-flush home-list">
+                    {% for error in error_logs %}
+                    <li class="list-group-item p-2">
+                        <a href="{{ error.link }}" class="d-block text-decoration-none stretched-link">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <strong class="text-truncate me-2">{{ error.process }}</strong>
+                                <small class="text-muted flex-shrink-0">{{ error.time }}</small>
+                            </div>
+                            <small class="text-muted text-truncate d-block">{{ error.message }}</small>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item p-3 text-muted text-center small">No recent errors 🎉</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Failed queue elements -->
+        <div class="col-12 col-lg-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <strong><i class="bi bi-collection text-warning"></i> Failed queue elements</strong>
+                    <a href="{{ url_for('queues.queues', has_failed='true') }}" class="small">View all</a>
+                </div>
+                <ul class="list-group list-group-flush home-list">
+                    {% for queue in failed_queues %}
+                    <li class="list-group-item p-2">
+                        <a href="{{ queue.link }}" class="d-block text-decoration-none stretched-link">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <strong class="text-truncate me-2">{{ queue.queue_name }}</strong>
+                                <small class="text-muted flex-shrink-0">{{ queue.failed }}</small>
+                            </div>
+                            <small class="text-muted text-truncate d-block">{{ queue.reference }}</small>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item p-3 text-muted text-center small">No recently failed elements 🎉</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Failed triggers -->
+        <div class="col-12 col-lg-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <strong><i class="bi bi-x-octagon text-danger"></i> Failed triggers</strong>
+                    <a href="{{ url_for('triggers.triggers', status_filter='FAILED') }}" class="small">View all</a>
+                </div>
+                <ul class="list-group list-group-flush home-list">
+                    {% for trigger in failed_triggers %}
+                    <li class="list-group-item p-2">
+                        <a href="{{ trigger.link }}" class="d-block text-decoration-none stretched-link">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <strong class="text-truncate me-2">{{ trigger.name }}</strong>
+                                <span class="badge bg-danger flex-shrink-0">{{ trigger.status }}</span>
+                            </div>
+                            <small class="text-muted text-truncate d-block">{{ trigger.process }}</small>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item p-3 text-muted text-center small">No failed triggers 🎉</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script src="{{ url_for('static', filename='js/chart.js') }}"></script>

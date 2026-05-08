@@ -5,23 +5,21 @@ function getSelectedIds() {
 function retrySelected() {
     let selectedIds = getSelectedIds();
     if (selectedIds.length === 0) {
-        alert("No queues selected.");
+        window.showToast("No queue elements selected.", "warning");
         return;
     }
+    if (!confirm(`Retry ${selectedIds.length} selected queue item(s)?`)) return;
 
-    if (!confirm(`Are you sure you want to retry ${selectedIds.length} selected queue item(s)?`)) {
-        return; // Cancel if user presses "Cancel"
-    }
     fetch("/queues/update_status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: selectedIds, status: "NEW" })
-    }).then(response => response.json()).then(data => {
+    }).then(r => r.json()).then(data => {
         if (data.success) {
-            alert("Queues set to NEW successfully!");
-            $("#queues-table").bootstrapTable("refresh"); // Refresh the table without reloading the page
+            window.showToast(`${selectedIds.length} queue item(s) set to NEW`, "success");
+            $("#queues-table").bootstrapTable("refresh");
         } else {
-            alert("Failed to retry selected queues.");
+            window.showToast("Failed to retry: " + (data.error || "unknown"), "error");
         }
     });
 }
@@ -29,22 +27,21 @@ function retrySelected() {
 function deleteSelected() {
     let selectedIds = getSelectedIds();
     if (selectedIds.length === 0) {
-        alert("No queues selected.");
+        window.showToast("No queue elements selected.", "warning");
         return;
     }
-    if (!confirm("Are you sure you want to delete the selected queues?")) {
-        return;
-    }
+    if (!confirm("Delete the selected queue elements?")) return;
+
     fetch("/queues/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: selectedIds })
-    }).then(response => response.json()).then(data => {
+    }).then(r => r.json()).then(data => {
         if (data.success) {
-            alert("Queues deleted successfully!");
-            $("#queues-table").bootstrapTable("refresh"); // Refresh the table dynamically
+            window.showToast(`${selectedIds.length} queue item(s) deleted`, "success");
+            $("#queues-table").bootstrapTable("refresh");
         } else {
-            alert("Failed to delete selected queues.");
+            window.showToast("Failed to delete: " + (data.error || "unknown"), "error");
         }
     });
 }
@@ -130,7 +127,7 @@ $(document).on("click", ".view-full-text, .truncated-text", function (event) {
 $("#copyTextBtn").click(function () {
     let text = $("#modalContent").text();
     navigator.clipboard.writeText(text).then(() => {
-        alert("Copied to clipboard!");
+        window.showToast("Copied to clipboard", "success");
     });
 });
 
@@ -247,7 +244,7 @@ async function openEditQueueModal(elementId) {
     const res = await fetch(`/queues/element/${encodeURIComponent(elementId)}`);
     const data = await res.json();
     if (!data.success) {
-        alert("Could not load element: " + (data.error || "unknown"));
+        window.showToast("Could not load element: " + (data.error || "unknown"), "error");
         return;
     }
     const el = data.element;
@@ -333,9 +330,10 @@ async function saveQueueElement() {
     });
     const data = await res.json();
     if (!data.success) {
-        alert((isCreate ? "Create" : "Save") + " failed: " + (data.error || "unknown"));
+        window.showToast((isCreate ? "Create" : "Save") + " failed: " + (data.error || "unknown"), "error");
         return;
     }
+    window.showToast(isCreate ? "Queue element created" : "Queue element saved", "success");
     bootstrap.Modal.getInstance(document.getElementById("editQueueModal")).hide();
     $('#queues-table').bootstrapTable('refresh', { silent: true });
 }
@@ -367,7 +365,7 @@ function toggleHandledSelected() {
     const ids = $('#queues-table').bootstrapTable('getSelections').map(r => r.id);
 
     if (!ids.length) {
-        alert("No queues selected.");
+        window.showToast("No queue elements selected.", "warning");
         return;
     }
 
@@ -394,7 +392,7 @@ function toggleHandledSelected() {
         updateTableFilters();
     })
     .catch(err => {
-        alert("Toggle handled failed: " + err.message);
+        window.showToast("Toggle handled failed: " + err.message, "error");
         console.error(err);
     });
 }

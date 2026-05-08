@@ -1,1 +1,5 @@
 /* Jobs page-specific styles */
+
+/* Allow the kill split-button dropdown to escape the table viewport. */
+.fixed-table-body { overflow: visible !important; }
+.dropdown-menu { z-index: 1080; }

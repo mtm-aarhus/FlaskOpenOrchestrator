@@ -1,6 +1,13 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from datetime import timedelta
 import os
+
+try:
+    from flask_compress import Compress
+    _compress = Compress()
+except ImportError:
+    _compress = None
 
 db = SQLAlchemy()
 
@@ -19,6 +26,16 @@ def create_app():
     else:
         app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('OpenOrchestratorSQL')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+    # Cache /static/* in the browser for 1 day. Bump or version filenames after a
+    # static asset change if users see stale CSS/JS.
+    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = timedelta(days=1)
+
+    # Gzip HTML / JSON / CSS / JS responses if Flask-Compress is installed.
+    # Cuts the home + stats + logs pages down to ~20-40% of their size on the wire.
+    if _compress is not None:
+        _compress.init_app(app)
+
     db.init_app(app)
 
     with app.app_context():

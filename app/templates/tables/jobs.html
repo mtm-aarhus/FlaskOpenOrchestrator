@@ -33,6 +33,7 @@
         data-side-pagination="server"
         data-page-size="25"
         data-page-list="[25, 50, 100, 1000, all]"
+        data-unique-id="id"
         data-toolbar="#jobs-toolbar"
         data-sort-name="start_time"
         data-sort-order="desc"
@@ -41,11 +42,11 @@
             <tr>
                 <th data-field="status" data-sortable="true" data-formatter="formatJobStatus" data-width="110">Status</th>
                 <th data-field="process_name" data-sortable="true">Process</th>
-                <th data-field="scheduler_name" data-sortable="true">Scheduler</th>
+                <th data-field="scheduler_name" data-sortable="true" class="d-none d-md-table-cell" data-class="d-none d-md-table-cell">Scheduler</th>
                 <th data-field="start_time" data-sortable="true">Start</th>
-                <th data-field="end_time" data-sortable="true">End</th>
-                <th data-field="duration">Duration</th>
-                <th data-field="id" data-formatter="formatJobActions" data-width="180">Logs</th>
+                <th data-field="end_time" data-sortable="true" class="d-none d-lg-table-cell" data-class="d-none d-lg-table-cell">End</th>
+                <th data-field="duration" data-formatter="formatJobDuration" class="d-none d-md-table-cell" data-class="d-none d-md-table-cell">Duration</th>
+                <th data-field="id" data-formatter="formatJobActions" data-width="220">Actions</th>
             </tr>
         </thead>
     </table>

@@ -1,0 +1,46 @@
+/* Home dashboard */
+
+/* KPI cards — give them a subtle hover lift. */
+.kpi-card {
+    transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+    color: inherit;
+}
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+.kpi-card .display-6 {
+    line-height: 1.1;
+    font-size: clamp(1.75rem, 5vw, 2.5rem);
+}
+
+/* Neutral state — used when the KPI has nothing alarming to show. */
+.kpi-card.kpi-neutral {
+    background-color: var(--bs-body-bg);
+    color: var(--bs-secondary-color);
+}
+.kpi-card.kpi-neutral i { opacity: 0.5; }
+.kpi-card.kpi-neutral .display-6 { color: var(--bs-body-color); }
+
+/* Compact list items inside the alert cards. */
+.home-list {
+    max-height: 320px;
+    overflow-y: auto;
+}
+.home-list .list-group-item {
+    border-left: 0;
+    border-right: 0;
+}
+.home-list .list-group-item a:hover strong {
+    text-decoration: underline;
+}
+
+/* Tighten things up on small screens. */
+@media (max-width: 575.98px) {
+    .home-dashboard .display-6 {
+        font-size: 1.6rem;
+    }
+    .home-dashboard .card-header {
+        font-size: 0.95rem;
+    }
+}

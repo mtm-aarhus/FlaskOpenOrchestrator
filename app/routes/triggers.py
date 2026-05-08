@@ -22,6 +22,11 @@ def get_triggers_data():
     search = request.args.get("search", "", type=str)
     sort = request.args.get("sort", "trigger_name")
     order = request.args.get("order", "desc")
+    # Both filters accept comma-separated lists of allowed values.
+    type_filter = request.args.get("type_filter", "", type=str)
+    status_filter = request.args.get("status_filter", "", type=str)
+    types = [t.strip() for t in type_filter.split(",") if t.strip()] if type_filter else []
+    statuses = [s.strip() for s in status_filter.split(",") if s.strip()] if status_filter else []
 
     order_by = column(sort).desc() if order.lower() == "desc" else column(sort).asc()
 
@@ -66,6 +71,12 @@ def get_triggers_data():
                 QueueTriggers.queue_name.ilike(f"%{search}%")
             )
         )
+
+    # No defaults — show every trigger when no pill is selected. Pills explicitly narrow the list.
+    if types:
+        base_query = base_query.filter(Triggers.type.in_(types))
+    if statuses:
+        base_query = base_query.filter(Triggers.process_status.in_(statuses))
 
     # Get the total filtered count
     total_count = base_query.with_entities(db.func.count()).scalar()
@@ -235,21 +246,82 @@ def create_trigger():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+VALID_TRIGGER_STATUSES = {
+    "IDLE", "RUNNING", "FAILED", "DONE", "PAUSED", "PAUSING", "KILLING", "KILLED",
+}
+
+
 @bp.route('/update_status', methods=['POST'])
 def update_status():
-    """Update the status of a trigger."""
-    data = request.json
+    """Update the status of a trigger. Validates against the OO 3.0 TriggerStatus enum."""
+    data = request.json or {}
     trigger_id = data.get("id")
     new_status = data.get("new_status")
 
     if not trigger_id:
         return jsonify({"success": False, "error": "Missing trigger ID"}), 400
+    if new_status not in VALID_TRIGGER_STATUSES:
+        return jsonify({
+            "success": False,
+            "error": f"Invalid status '{new_status}'. Must be one of: {sorted(VALID_TRIGGER_STATUSES)}",
+        }), 400
 
     try:
-        db.session.query(Triggers).filter_by(id=trigger_id).update({"process_status": new_status})
+        rows = db.session.query(Triggers).filter_by(id=trigger_id).update({"process_status": new_status})
+        if rows == 0:
+            return jsonify({"success": False, "error": "Trigger not found"}), 404
         db.session.commit()
         return jsonify({"success": True})
 
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@bp.route('/bulk_status', methods=['POST'])
+def bulk_update_status():
+    """Set process_status for many triggers at once. Used by the bulk-actions toolbar."""
+    data = request.json or {}
+    ids = data.get("ids") or []
+    new_status = data.get("new_status")
+
+    if not ids:
+        return jsonify({"success": False, "error": "No trigger IDs provided"}), 400
+    if new_status not in VALID_TRIGGER_STATUSES:
+        return jsonify({
+            "success": False,
+            "error": f"Invalid status '{new_status}'.",
+        }), 400
+
+    try:
+        affected = (
+            db.session.query(Triggers)
+            .filter(Triggers.id.in_(ids))
+            .update({"process_status": new_status}, synchronize_session=False)
+        )
+        db.session.commit()
+        return jsonify({"success": True, "affected": affected})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@bp.route('/bulk_delete', methods=['POST'])
+def bulk_delete_triggers():
+    """Delete many triggers + their sub-table rows."""
+    data = request.json or {}
+    ids = data.get("ids") or []
+    if not ids:
+        return jsonify({"success": False, "error": "No trigger IDs provided"}), 400
+
+    try:
+        # Drop child rows first to satisfy FK constraints.
+        db.session.query(SingleTriggers).filter(SingleTriggers.id.in_(ids)).delete(synchronize_session=False)
+        db.session.query(ScheduledTriggers).filter(ScheduledTriggers.id.in_(ids)).delete(synchronize_session=False)
+        db.session.query(QueueTriggers).filter(QueueTriggers.id.in_(ids)).delete(synchronize_session=False)
+        affected = db.session.query(Triggers).filter(Triggers.id.in_(ids)).delete(synchronize_session=False)
+        db.session.commit()
+        return jsonify({"success": True, "affected": affected})
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "error": str(e)}), 500

@@ -215,14 +215,16 @@ function deleteTrigger(triggerId) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert("Trigger deleted successfully!");
-            // Remove deleted row from the table dynamically
-            $('#trigger-table').bootstrapTable("refresh"); 
+            window.showToast("Trigger deleted", "success");
+            $('#trigger-table').bootstrapTable("refresh");
         } else {
-            alert("Failed to delete trigger: " + data.error);
+            window.showToast("Failed to delete trigger: " + data.error, "error");
         }
     })
-    .catch(error => console.error("Error deleting trigger:", error));
+    .catch(error => {
+        console.error("Error deleting trigger:", error);
+        window.showToast("Failed to delete trigger", "error");
+    });
 }
 
 
@@ -233,14 +235,48 @@ function formatGitBranch(value, row) {
 }
 
 function formatActionButtons(value, row) {
+    // Escape attribute payload — single quotes inside trigger names break the onclick.
+    const safeName = String(row.trigger_name || "").replace(/'/g, "\\'");
     return `
-        <button class="btn btn-primary btn-sm" data-trigger='${JSON.stringify(row)}' onclick="openEditModalFromButton(this)">
-            <i class="bi bi-pencil"></i> Edit
-        </button>
-        <button class="btn btn-danger btn-sm" onclick="confirmDeleteTrigger('${row.id}', '${row.trigger_name}')">
-            <i class="bi bi-trash"></i> Delete
-        </button>
-    `;
+        <div class="btn-group btn-group-sm" role="group">
+            <button class="btn btn-primary" data-trigger='${JSON.stringify(row)}' onclick="openEditModalFromButton(this)" title="Edit trigger">
+                <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Force reset status (use when scheduler is dead and trigger is stuck)">
+                <i class="bi bi-arrow-counterclockwise"></i>
+            </button>
+            <ul class="dropdown-menu">
+                <li><h6 class="dropdown-header">Force reset to...</h6></li>
+                <li><a class="dropdown-item" href="#" onclick="forceResetStatus(event, '${row.id}', 'IDLE')">Idle</a></li>
+                <li><a class="dropdown-item" href="#" onclick="forceResetStatus(event, '${row.id}', 'PAUSED')">Paused</a></li>
+                <li><a class="dropdown-item" href="#" onclick="forceResetStatus(event, '${row.id}', 'FAILED')">Failed</a></li>
+            </ul>
+            <button class="btn btn-danger" onclick="confirmDeleteTrigger('${row.id}', '${safeName}')" title="Delete trigger">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>`;
+}
+
+function forceResetStatus(event, triggerId, newStatus) {
+    event.preventDefault();
+    if (!confirm(`Force-reset trigger to ${newStatus}?\n\nThis bypasses the scheduler — only use when the scheduler is dead and the trigger is stuck (e.g. KILLING with no scheduler to ack it).`)) {
+        return;
+    }
+    fetch("/triggers/update_status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: triggerId, new_status: newStatus })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            window.showToast(`Trigger reset to ${newStatus}`, "success");
+            $('#trigger-table').bootstrapTable("refresh");
+        } else {
+            window.showToast("Reset failed: " + (data.error || "unknown error"), "error");
+        }
+    })
+    .catch(err => window.showToast("Reset failed: " + err, "error"));
 }
 
 
@@ -323,12 +359,13 @@ function confirmKillTrigger(triggerId, triggerName) {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
+            window.showToast("Kill request sent — scheduler will terminate the process", "warning");
             $('#trigger-table').bootstrapTable("refresh");
         } else {
-            alert("Failed to send kill: " + (data.error || "unknown error"));
+            window.showToast("Failed to send kill: " + (data.error || "unknown error"), "error");
         }
     })
-    .catch(err => alert("Failed to send kill: " + err));
+    .catch(err => window.showToast("Failed to send kill: " + err, "error"));
 }
 
 function toggleStatus(triggerId, newStatus) {
@@ -340,21 +377,19 @@ function toggleStatus(triggerId, newStatus) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Find the row for the updated trigger
-            let $row = $(`button[onclick="toggleStatus('${triggerId}', '${newStatus}')"]`).closest("tr");
-            
-            // Update process_status in the table
-            let newStatusText = newStatus; // Update UI text representation
-            let newButton = formatStatusButton(newStatus, { id: triggerId, process_status: newStatus });
-
-            // Update the button in the table without refreshing the whole page
-            $row.find("td").eq(0).html(newButton); // Assuming status button is in the first column
-            
+            // Refresh the row from the server so all dependent fields (e.g.
+            // type-specific next_run, button HTML) re-render via the column
+            // formatters. Cleaner than patching cells by index — that broke
+            // when the checkbox column was added.
+            $("#trigger-table").bootstrapTable("refresh", { silent: true });
         } else {
-            alert("Failed to update status.");
+            window.showToast("Failed to update status.", "error");
         }
     })
-    .catch(error => console.error("Error updating status:", error));
+    .catch(error => {
+        console.error("Error updating status:", error);
+        window.showToast("Failed to update status: " + error, "error");
+    });
 }
 
 
@@ -413,6 +448,28 @@ document.addEventListener("DOMContentLoaded", function () {
         // Ensure only one event listener is attached to the form
     form.removeEventListener("submit", handleTriggerFormSubmit); // Remove existing listener
     form.addEventListener("submit", handleTriggerFormSubmit); // Add a single event listener
+
+    // Apply incoming URL params (e.g. from home page failed-trigger link)
+    // after bootstrap-table is wired up.
+    $('#trigger-table').one('post-body.bs.table', applyTriggerUrlFilters);
+
+    // Track selection count for the bulk-actions toolbar.
+    $('#trigger-table').on(
+        'check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table',
+        updateBulkCount
+    );
+
+    // Polite auto-refresh every 15s so RUNNING/KILLING transitions show without F5.
+    if (typeof window.startAutoRefresh === "function") {
+        window.startAutoRefresh(15000, () => {
+            $("#trigger-table").bootstrapTable("refresh", { silent: true });
+        });
+    }
+
+    // Flash a row when its process_status changes between refreshes.
+    if (typeof window.watchRowChanges === "function") {
+        window.watchRowChanges("#trigger-table", row => row.process_status);
+    }
 });
 
 // Function to handle trigger form submission
@@ -457,12 +514,29 @@ function handleTriggerFormSubmit(event) {
     .then(data => {
         if (data.success) {
             closeModal();
-            location.reload();
+            window.showToast(triggerData.id ? "Trigger updated" : "Trigger created", "success");
+            // Reload so the new/updated trigger appears with all relations loaded.
+            setTimeout(() => location.reload(), 500);
         } else {
-            alert(`Failed to ${triggerData.id ? "update" : "create"} trigger.`);
+            window.showToast(`Failed to ${triggerData.id ? "update" : "create"} trigger.`, "error");
         }
     })
-    .catch(error => console.error("Error submitting form:", error));
+    .catch(error => {
+        console.error("Error submitting form:", error);
+        window.showToast("Failed to submit form", "error");
+    });
+}
+
+function selectedPillValues(selector) {
+    return Array.from(document.querySelectorAll(`${selector}:checked`)).map(el => el.value);
+}
+
+function currentTriggerFilters() {
+    return {
+        search: document.getElementById("trigger-search")?.value.trim() || "",
+        type_filter: selectedPillValues(".trigger-type-pill").join(","),
+        status_filter: selectedPillValues(".trigger-status-pill").join(","),
+    };
 }
 
 function queryParams(params) {
@@ -471,20 +545,110 @@ function queryParams(params) {
         offset: params.offset,
         sort: params.sort,
         order: params.order,
-        search: params.search
+        ...currentTriggerFilters(),
     };
 }
 
 function responseHandler(res) {
-    return {
-        total: res.total,
-        rows: res.rows
-    };
+    return { total: res.total, rows: res.rows };
 }
-function updateTriggerTableFilters() {
-    let search = document.getElementById("trigger-search").value.trim();
 
+function updateTriggerTableFilters() {
     $("#trigger-table").bootstrapTable("refresh", {
-        query: { search: search }
+        query: currentTriggerFilters(),
+        pageNumber: 1,
     });
+}
+
+function selectedTriggerIds() {
+    return $("#trigger-table").bootstrapTable("getSelections").map(r => r.id);
+}
+
+function bulkSetStatus(newStatus) {
+    const ids = selectedTriggerIds();
+    if (!ids.length) return;
+    if (!confirm(`Set ${ids.length} trigger(s) to ${newStatus}?`)) return;
+    fetch("/triggers/bulk_status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: ids, new_status: newStatus }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) {
+            window.showToast("Bulk update failed: " + (data.error || "unknown"), "error");
+            return;
+        }
+        window.showToast(`${data.affected} trigger(s) set to ${newStatus}`, "success");
+        $("#trigger-table").bootstrapTable("uncheckAll");
+        $("#trigger-table").bootstrapTable("refresh");
+    });
+}
+
+function bulkDelete() {
+    const ids = selectedTriggerIds();
+    if (!ids.length) return;
+    if (!confirm(`Permanently delete ${ids.length} trigger(s)? This cannot be undone.`)) return;
+    fetch("/triggers/bulk_delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: ids }),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) {
+            window.showToast("Bulk delete failed: " + (data.error || "unknown"), "error");
+            return;
+        }
+        window.showToast(`${data.affected} trigger(s) deleted`, "success");
+        $("#trigger-table").bootstrapTable("uncheckAll");
+        $("#trigger-table").bootstrapTable("refresh");
+    });
+}
+
+function updateBulkCount() {
+    const n = selectedTriggerIds().length;
+    const row = document.getElementById("bulk-actions-row");
+    const badge = document.getElementById("bulk-count");
+    if (badge) badge.textContent = n;
+    if (row) {
+        row.classList.toggle("d-none", n === 0);
+        row.classList.toggle("d-flex", n > 0);
+    }
+    // Push body content up so the last rows aren't hidden behind the floating bar.
+    document.body.classList.toggle("has-bulk-actions", n > 0);
+}
+
+function clearTriggerFilters() {
+    document.getElementById("trigger-search").value = "";
+    document.querySelectorAll(".trigger-type-pill, .trigger-status-pill").forEach(el => {
+        el.checked = false;
+    });
+    updateTriggerTableFilters();
+}
+
+// Apply URL params on initial load — used by home page deep-links.
+// Comma-separated type_filter/status_filter values toggle the matching pills.
+function applyTriggerUrlFilters() {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has("search") && !params.has("type_filter") && !params.has("status_filter")) {
+        return;
+    }
+    if (params.has("search")) {
+        document.getElementById("trigger-search").value = params.get("search");
+    }
+    if (params.has("type_filter")) {
+        const wanted = new Set((params.get("type_filter") || "").split(",").map(s => s.trim()).filter(Boolean));
+        document.querySelectorAll(".trigger-type-pill").forEach(el => {
+            el.checked = wanted.has(el.value);
+        });
+    }
+    if (params.has("status_filter")) {
+        const wanted = new Set((params.get("status_filter") || "").split(",").map(s => s.trim()).filter(Boolean));
+        document.querySelectorAll(".trigger-status-pill").forEach(el => {
+            el.checked = wanted.has(el.value);
+        });
+    }
+    window.history.replaceState({}, document.title, window.location.pathname);
+    updateTriggerTableFilters();
 }

@@ -23,8 +23,19 @@ def get_queues_data():
     sort = request.args.get("sort", "FAILED")
     order = request.args.get("order", "desc")
     search = request.args.get("search", "", type=str)
+    has_failed = request.args.get("has_failed", "false").lower() == "true"
+    has_new = request.args.get("has_new", "false").lower() == "true"
+    has_done = request.args.get("has_done", "false").lower() == "true"
+    has_in_progress = request.args.get("has_in_progress", "false").lower() == "true"
+    has_abandoned = request.args.get("has_abandoned", "false").lower() == "true"
+    start_date = request.args.get("start_date", "", type=str)
+    end_date = request.args.get("end_date", "", type=str)
+    if start_date:
+        start_date = datetime.strptime(start_date, "%Y-%m-%dT%H:%M")
+    if end_date:
+        end_date = datetime.strptime(end_date, "%Y-%m-%dT%H:%M")
 
-    # 1) Base-filter (som i logs.py: enkel query, ingen subqueries i aggregater)
+    # 1) Base-filter
     q = db.session.query(
         Queues.queue_name,
         Queues.status,
@@ -33,6 +44,10 @@ def get_queues_data():
 
     if search:
         q = q.filter(Queues.queue_name.ilike(f"%{search}%"))
+    if start_date:
+        q = q.filter(Queues.created_date >= start_date)
+    if end_date:
+        q = q.filter(Queues.created_date <= end_date)
 
     status_counts = (
         q.group_by(Queues.queue_name, Queues.status)
@@ -79,14 +94,39 @@ def get_queues_data():
                 queue_counts[queue_name]["FAILED"] - handled_failed
             )
 
-    # 5) Sort + paginate i Python (enkelt og stabilt)
+    # 5) Apply has_* filters after aggregation, build rows, propagate filters to detail link.
+    active_status_filters = {
+        "FAILED": has_failed,
+        "NEW": has_new,
+        "DONE": has_done,
+        "IN_PROGRESS": has_in_progress,
+        "ABANDONED": has_abandoned,
+    }
+    detail_kwargs = {}
+    if start_date:
+        detail_kwargs["start_date"] = start_date.strftime("%Y-%m-%dT%H:%M")
+    if end_date:
+        detail_kwargs["end_date"] = end_date.strftime("%Y-%m-%dT%H:%M")
+    # If exactly one status filter is on, drill into the detail page filtered to that status.
+    active_count = sum(1 for v in active_status_filters.values() if v)
+    if active_count == 1:
+        for status, on in active_status_filters.items():
+            if on:
+                detail_kwargs["filter_status"] = status
+                break
+
     rows = []
     for queue_name, counts in queue_counts.items():
+        # If any status filters are active, the queue must have >0 in at least one of them.
+        if active_count > 0 and not any(
+            counts[status] > 0 for status, on in active_status_filters.items() if on
+        ):
+            continue
+        link = url_for("queues.queues_detail", queue_name=queue_name, **detail_kwargs)
         rows.append({
             "queue_name": queue_name,
             **counts,
-            "Actions": f'<a href="{url_for("queues.queues_detail", queue_name=queue_name)}" '
-                       f'class="btn btn-primary btn-sm">View Queue Items</a>',
+            "Actions": f'<a href="{link}" class="btn btn-primary btn-sm">View Queue Items</a>',
         })
 
     reverse = (order.lower() == "desc")

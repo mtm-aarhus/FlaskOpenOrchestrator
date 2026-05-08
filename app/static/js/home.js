@@ -37,7 +37,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return { step, max };
       }
 
-      function makeChart(canvasId, label, series, rgba) {
+      function makeChart(canvasId, label, series, rgba, kind /* "failed" | "success" */) {
         const el = document.getElementById(canvasId);
         if (!el) return null;
 
@@ -52,6 +52,23 @@ document.addEventListener("DOMContentLoaded", function () {
           options: {
             responsive: true,
             maintainAspectRatio: false,
+            // Drill into the queue overview for the clicked day, filtered by status.
+            onClick: (_evt, elements) => {
+              if (!elements.length) return;
+              const idx = elements[0].index;
+              const dayIso = (data.dates || [])[idx];
+              if (!dayIso) return;
+              const params = new URLSearchParams({
+                start_date: `${dayIso}T00:00`,
+                end_date:   `${dayIso}T23:59`,
+                has_failed: kind === "failed" ? "true" : "false",
+                has_done:   kind === "success" ? "true" : "false",
+              });
+              window.location.href = `/queues/?${params.toString()}`;
+            },
+            onHover: (evt, elements) => {
+              evt.native.target.style.cursor = elements.length ? "pointer" : "default";
+            },
             plugins: {
               legend: { position: "top", labels: { color: getTextColor() } },
             },
@@ -71,14 +88,16 @@ document.addEventListener("DOMContentLoaded", function () {
         "queuePerformanceFailedChart",
         "Failed",
         data.failed || [],
-        "rgba(200, 0, 0, 0.7)"
+        "rgba(200, 0, 0, 0.7)",
+        "failed"
       );
 
       const successChart = makeChart(
         "queuePerformanceSuccessChart",
         "Successful",
         data.success || [],
-        "rgba(0, 200, 0, 0.7)"
+        "rgba(0, 200, 0, 0.7)",
+        "success"
       );
 
       window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
@@ -92,4 +111,11 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     })
     .catch((e) => console.error("Error loading queue performance data:", e));
+
+  // Auto-refresh every 30s so the failure / done KPIs stay current.
+  // The shared helper (tables.js) pauses while a modal is open, the tab is hidden,
+  // or any input has focus — so a casual scroll won't get yanked away.
+  if (typeof window.startAutoRefresh === "function") {
+      window.startAutoRefresh(30000, () => location.reload());
+  }
 });

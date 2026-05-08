@@ -37,7 +37,7 @@ def index():
     recent_errors = (
         db.session.query(Logs)
         .filter(
-            Logs.log_level.ilike("ERROR"),
+            Logs.log_level == "ERROR",
             Logs.log_time >= time_range,
             ~viewed_exists
         )
@@ -74,7 +74,7 @@ def index():
     recent_failed_queues = (
         db.session.query(Queues)
         .filter(
-            Queues.status.ilike("FAILED"),
+            Queues.status == "FAILED",
             ~handled_exists
         )
         .order_by(Queues.end_date.desc())
@@ -103,7 +103,7 @@ def index():
     # Fetch all "FAILED" triggers
     failed_triggers = (
         db.session.query(Triggers)
-        .filter(Triggers.process_status.ilike("FAILED"))
+        .filter(Triggers.process_status == "FAILED")
         .order_by(Triggers.trigger_name.asc())
         .all()
     )
@@ -113,23 +113,66 @@ def index():
             "name": trigger.trigger_name,
             "process": trigger.process_name,
             "status": trigger.process_status,
-            "link": url_for("triggers.triggers"), 
+            # Deep-link to the triggers page with this exact trigger pre-filtered.
+            "link": url_for(
+                "triggers.triggers",
+                search=trigger.trigger_name,
+                status_filter="FAILED",
+            ),
         }
         for trigger in failed_triggers
     ]
+
+    # KPI counts for the home dashboard.
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    counts = {
+        "failed_triggers": len(failed_triggers),
+        # All-time: every unhandled FAILED queue element regardless of when it failed.
+        "failed_queues_total": db.session.query(db.func.count())
+            .select_from(Queues)
+            .filter(
+                Queues.status == "FAILED",
+                ~handled_exists,
+            )
+            .scalar() or 0,
+        "recent_errors": db.session.query(db.func.count())
+            .select_from(Logs)
+            .filter(
+                Logs.log_level == "ERROR",
+                Logs.log_time >= time_range,
+                ~viewed_exists,
+            )
+            .scalar() or 0,
+        "done_today": db.session.query(db.func.count())
+            .select_from(Queues)
+            .filter(
+                Queues.status == "DONE",
+                Queues.end_date >= today_start,
+            )
+            .scalar() or 0,
+    }
 
     return render_template(
         "index.html",
         error_logs=error_logs,
         failed_queues=failed_queues,
         failed_triggers=failed_trigger_list,
+        counts=counts,
+        # Used by the "Done today" KPI card to deep-link with a today-range filter.
+        today_iso=today_start.strftime("%Y-%m-%dT%H:%M"),
+        tomorrow_iso=(today_start + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M"),
         page='Home'
     )
 
 @bp.route("/performance")
 def queue_performance():
-    """Return queue success vs failed counts for the last 4 days."""
+    """Return queue success vs failed counts for the last 5 days. Two grouped queries total."""
     now = datetime.now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    days = [today_start - timedelta(days=i) for i in range(4, -1, -1)]
+    window_start = days[0]
+    window_end = today_start + timedelta(days=1)
+
     handled_exists = (
         exists(
             select(1)
@@ -139,30 +182,38 @@ def queue_performance():
         .correlate(Queues)
     )
 
-    days = [(now - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(4, -1, -1)]
+    day_col = cast(Queues.created_date, Date).label("d")
 
-    success_counts = []
-    failed_counts = []
+    # One grouped query for success counts.
+    success_rows = (
+        db.session.query(day_col, db.func.count())
+        .filter(
+            Queues.status == "DONE",
+            Queues.created_date >= window_start,
+            Queues.created_date < window_end,
+        )
+        .group_by(day_col)
+        .all()
+    )
+    success_by_day = {d.strftime("%Y-%m-%d"): c for d, c in success_rows}
 
-    for day in days:
-        start_of_day = datetime.strptime(day, "%Y-%m-%d")
-        end_of_day = start_of_day + timedelta(days=1)
+    # One grouped query for failed counts (excluding handled).
+    failed_rows = (
+        db.session.query(day_col, db.func.count())
+        .filter(
+            Queues.status == "FAILED",
+            Queues.created_date >= window_start,
+            Queues.created_date < window_end,
+            ~handled_exists,
+        )
+        .group_by(day_col)
+        .all()
+    )
+    failed_by_day = {d.strftime("%Y-%m-%d"): c for d, c in failed_rows}
 
-        success_count = db.session.query(Queues).filter(
-            Queues.status.ilike("DONE"),
-            Queues.created_date >= start_of_day,
-            Queues.created_date < end_of_day
-        ).count()
-
-        failed_count = db.session.query(Queues).filter(
-            Queues.status.ilike("FAILED"),
-            Queues.created_date >= start_of_day,
-            Queues.created_date < end_of_day,
-            ~handled_exists
-        ).count()
-
-
-        success_counts.append(success_count)
-        failed_counts.append(failed_count)
-
-    return jsonify({"dates": days, "success": success_counts, "failed": failed_counts})
+    days_iso = [d.strftime("%Y-%m-%d") for d in days]
+    return jsonify({
+        "dates": days_iso,
+        "success": [success_by_day.get(d, 0) for d in days_iso],
+        "failed":  [failed_by_day.get(d, 0)  for d in days_iso],
+    })

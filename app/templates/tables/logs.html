@@ -33,10 +33,10 @@
     <thead>
       <tr>
         <th data-field="process_name" data-type="string" data-sortable="true">Process Name</th>
-        <th data-type="number" data-sortable="true">Trace</th>
-        <th data-type="number" data-sortable="true">Info</th>
+        <th data-type="number" data-sortable="true" class="d-none d-md-table-cell">Trace</th>
+        <th data-type="number" data-sortable="true" class="d-none d-md-table-cell">Info</th>
         <th data-type="number" data-sortable="true">Error</th>
-        <th data-type="number" data-sortable="true">Total</th>
+        <th data-type="number" data-sortable="true" class="d-none d-sm-table-cell">Total</th>
         <th data-width="100">View</th>
       </tr>
     </thead>
@@ -45,10 +45,10 @@
       {% for process, counts in log_counts.items() %}
       <tr>
         <td>{{ process }}</td>
-        <td>{{ counts["TRACE"] }}</td>
-        <td>{{ counts["INFO"] }}</td>
+        <td class="d-none d-md-table-cell">{{ counts["TRACE"] }}</td>
+        <td class="d-none d-md-table-cell">{{ counts["INFO"] }}</td>
         <td class="text-danger fw-bold">{{ counts["ERROR"] }}</td>
-        <td class="fw-bold">{{ counts["Total"] }}</td>
+        <td class="fw-bold d-none d-sm-table-cell">{{ counts["Total"] }}</td>
         <td>
           <a href="{{ url_for('logs.view_logs', process_name=process) }}" class="btn btn-primary btn-sm">
             View Logs

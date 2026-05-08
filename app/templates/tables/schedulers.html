@@ -19,8 +19,8 @@
           <tr>
               <th data-field="machine_name" data-formatter="formatSchedulerName" data-sortable="true">Machine Name</th>
               <th data-field="last_update" data-sortable="true">Last Update</th>
-              <th data-field="latest_trigger" data-sortable="true">Latest Trigger</th>
-              <th data-field="latest_trigger_time" data-sortable="true">Latest Trigger Time</th>
+              <th data-field="latest_trigger" data-sortable="true" class="d-none d-md-table-cell" data-class="d-none d-md-table-cell">Latest Trigger</th>
+              <th data-field="latest_trigger_time" data-sortable="true" class="d-none d-lg-table-cell" data-class="d-none d-lg-table-cell">Latest Trigger Time</th>
           </tr>
       </thead>
   </table>
@@ -47,22 +47,23 @@ function schedulerResponseHandler(res) {
     };
 }
 
-// Auto-refresh the table every 10 seconds (while preserving state)
+// Auto-refresh every 10s — polite (pauses on hidden tab / open modal / focused input).
 document.addEventListener("DOMContentLoaded", function () {
+    if (typeof window.startAutoRefresh !== "function") return;
     const table = $("#scheduler-table");
-    setInterval(() => {
+    window.startAutoRefresh(10000, () => {
         const options = table.bootstrapTable("getOptions");
         table.bootstrapTable("refresh", {
-            silent: true,  // keeps current page, sort, and search
+            silent: true,
             query: {
-                limit: options.pageSize,
+                limit:  options.pageSize,
                 offset: (options.pageNumber - 1) * options.pageSize,
-                sort: options.sortName,
-                order: options.sortOrder,
-                search: options.searchText
-            }
+                sort:   options.sortName,
+                order:  options.sortOrder,
+                search: options.searchText,
+            },
         });
-    }, 10000); // 10 seconds
+    });
 });
 </script>
 {% endblock %}

@@ -3,7 +3,7 @@
     display: none !important;
 }
 
-/* Modal Styling */
+/* Modal Styling — custom flex-centered modal used by the trigger create/edit form. */
 .modal {
     display: none;
     position: fixed;
@@ -15,17 +15,28 @@
     background-color: rgba(0, 0, 0, 0.5); /* Standard backdrop */
     justify-content: center;
     align-items: center;
+    padding: 0.75rem;     /* breathing room on small screens */
+    overflow-y: auto;     /* let the page scroll if dialog is taller than viewport */
 }
-
-
 
 /* Bootstrap modal content styling */
 .modal-content {
-    padding: 20px;
     border-radius: 8px;
-    min-width: 600px; /* Set minimum width */
-    max-width: 90%;
+    width: 100%;
+    max-width: 600px;                 /* sane width on desktop */
+    max-height: calc(100vh - 1.5rem); /* never taller than viewport */
+    overflow-y: auto;                 /* scroll inside the dialog */
     position: relative;
+}
+
+/* Below the Bootstrap "sm" breakpoint, hand back almost the whole screen. */
+@media (max-width: 575.98px) {
+    .modal { padding: 0; }
+    .modal-content {
+        max-width: 100%;
+        max-height: 100vh;
+        border-radius: 0;
+    }
 }
 
 /* Close Button */
@@ -79,3 +90,7 @@ td[style="width: 20px;"] .btn {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
 }
+
+/* Allow the action-column dropdown to escape the bootstrap-table viewport. */
+.fixed-table-body { overflow: visible !important; }
+.dropdown-menu { z-index: 1080; }

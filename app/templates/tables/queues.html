@@ -3,28 +3,73 @@
 {% block content %}
     <h1 class="text-center">Queues</h1>
 
-    <table class="table table-striped table-hover"
+    <div id="queues-overview-toolbar" class="d-flex flex-column gap-2 mb-3 w-100">
+        <!-- Top row: search + date range + clear -->
+        <div class="d-flex flex-wrap gap-2 align-items-end">
+            <div class="d-flex flex-column flex-grow-1" style="min-width: 200px;">
+                <label for="overview-search" class="form-label mb-1">Search queue</label>
+                <input type="text" id="overview-search" class="form-control" placeholder="queue name" oninput="updateOverviewFilters()">
+            </div>
+            <div class="d-flex flex-column">
+                <label for="overview-start" class="form-label mb-1">From</label>
+                <input type="datetime-local" id="overview-start" class="form-control" onchange="updateOverviewFilters()">
+            </div>
+            <div class="d-flex flex-column">
+                <label for="overview-end" class="form-label mb-1">To</label>
+                <input type="datetime-local" id="overview-end" class="form-control" onchange="updateOverviewFilters()">
+            </div>
+            <div class="d-flex flex-column">
+                <label class="form-label invisible mb-1">Clear</label>
+                <button class="btn btn-outline-secondary" onclick="clearOverviewFilters()" title="Clear all filters">
+                    <i class="bi bi-x-circle"></i> Clear
+                </button>
+            </div>
+        </div>
+
+        <!-- Bottom row: status filter chiplets -->
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="small text-muted">Show queues with:</span>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Status filter">
+                <input type="checkbox" class="btn-check" id="overview-has-failed" autocomplete="off" onchange="updateOverviewFilters()">
+                <label class="btn btn-outline-danger" for="overview-has-failed"><i class="bi bi-x-circle"></i> Failed</label>
+
+                <input type="checkbox" class="btn-check" id="overview-has-in-progress" autocomplete="off" onchange="updateOverviewFilters()">
+                <label class="btn btn-outline-primary" for="overview-has-in-progress"><i class="bi bi-arrow-repeat"></i> In progress</label>
+
+                <input type="checkbox" class="btn-check" id="overview-has-new" autocomplete="off" onchange="updateOverviewFilters()">
+                <label class="btn btn-outline-info" for="overview-has-new"><i class="bi bi-plus-circle"></i> New</label>
+
+                <input type="checkbox" class="btn-check" id="overview-has-done" autocomplete="off" onchange="updateOverviewFilters()">
+                <label class="btn btn-outline-success" for="overview-has-done"><i class="bi bi-check2-circle"></i> Done</label>
+
+                <input type="checkbox" class="btn-check" id="overview-has-abandoned" autocomplete="off" onchange="updateOverviewFilters()">
+                <label class="btn btn-outline-warning" for="overview-has-abandoned"><i class="bi bi-slash-circle"></i> Abandoned</label>
+            </div>
+        </div>
+    </div>
+
+    <table id="queues-overview-table" class="table table-striped table-hover"
         data-toggle="table"
         data-pagination="true"
         data-page-size="25"
         data-page-list="[25, 50, 100, 1000, all]"
-        data-search="true"
         data-sort-name="failed"
         data-sort-order="desc"
         data-side-pagination="server"
+        data-toolbar="#queues-overview-toolbar"
         data-url="{{ url_for('queues.get_queues_data') }}"
         data-row-style="rowStyle"
         data-query-params="queryParams"
         data-response-handler="responseHandler">
-        
+
         <thead>
             <tr>
                 <th data-field="queue_name" data-sortable="true">Queue Name</th>
-                <th data-field="NEW" data-sortable="true" data-formatter="newFormatter">New</th>
-                <th data-field="IN_PROGRESS" data-sortable="true" data-formatter="InProgressFormatter">In Progress</th>
-                <th data-field="DONE" data-sortable="true" data-formatter="doneFormatter">Done</th>
+                <th data-field="NEW" data-sortable="true" data-formatter="newFormatter" class="d-none d-md-table-cell" data-class="d-none d-md-table-cell">New</th>
+                <th data-field="IN_PROGRESS" data-sortable="true" data-formatter="InProgressFormatter" class="d-none d-lg-table-cell" data-class="d-none d-lg-table-cell">In Progress</th>
+                <th data-field="DONE" data-sortable="true" data-formatter="doneFormatter" class="d-none d-md-table-cell" data-class="d-none d-md-table-cell">Done</th>
                 <th data-field="FAILED" data-sortable="true" data-formatter="failedFormatter">Failed</th>
-                <th data-field="ABANDONED" data-sortable="true" data-formatter="abandonedFormatter">Abandoned</th>
+                <th data-field="ABANDONED" data-sortable="true" data-formatter="abandonedFormatter" class="d-none d-lg-table-cell" data-class="d-none d-lg-table-cell">Abandoned</th>
                 <th data-field="Total" data-sortable="true">Total</th>
                 <th data-field="Actions" data-formatter="actionFormatter" data-width="150">Actions</th>
             </tr>
@@ -32,29 +77,11 @@
     </table>
 
 <script>
-    function actionFormatter(value, row, index) {
-        return row["Actions"];
-    }
-
-    function newFormatter(value, row, index) {
-        return value > 0 ? `<span class="text-info fw-bold">${value}</span>` : value;
-    }
-
-    function InProgressFormatter(value, row, index) {
-        return value > 0 ? `<span class="text-primary fw-bold">${value}</span>` : value;
-    }
-
-    function doneFormatter(value, row, index) {
-        return value > 0 ? `<span class="text-success fw-bold">${value}</span>` : value;
-    }
-
-    function failedFormatter(value, row, index) {
-        return value > 0 ? `<span class="text-danger fw-bold">${value}</span>` : value;
-    }
-
-    function abandonedFormatter(value, row, index) {
-        return value > 0 ? `<span class="text-warning fw-bold">${value}</span>` : value;
-    }
+    function actionFormatter(value, row, index) { return row["Actions"]; }
+    function newFormatter(value)         { return value > 0 ? `<span class="text-info fw-bold">${value}</span>` : value; }
+    function InProgressFormatter(value)  { return value > 0 ? `<span class="text-primary fw-bold">${value}</span>` : value; }
+    function doneFormatter(value)        { return value > 0 ? `<span class="text-success fw-bold">${value}</span>` : value; }
+    function failedFormatter(value)      { return value > 0 ? `<span class="text-danger fw-bold">${value}</span>` : value; }
+    function abandonedFormatter(value)   { return value > 0 ? `<span class="text-warning fw-bold">${value}</span>` : value; }
 </script>
-
 {% endblock %}

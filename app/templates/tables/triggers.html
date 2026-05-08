@@ -3,30 +3,89 @@
 {% block content %}
     <h1 class="text-center">Triggers</h1>
 
-    <div id="trigger_toolbar" class="d-flex flex-wrap align-items-center justify-content-between mb-2 w-100">
-        <!-- Filters (Left Side) -->
-        <div class="d-flex gap-3 flex-wrap flex-grow-1">
-            <div class="d-flex flex-column">
-                <input type="text" id="trigger-search" class="form-control w-auto" placeholder="Search" oninput="updateTriggerTableFilters()">
+    <div id="trigger_toolbar" class="d-flex flex-column gap-2 mb-3 w-100">
+
+        <!-- Row 1: search + clear + add buttons (search grows to fill) -->
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <div class="position-relative flex-grow-1" style="min-width: 200px;">
+                <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted"></i>
+                <input type="text" id="trigger-search" class="form-control ps-4" placeholder="Search name / process / path…" oninput="updateTriggerTableFilters()">
+            </div>
+            <button class="btn btn-outline-secondary" onclick="clearTriggerFilters()" title="Clear all filters">
+                <i class="bi bi-x-circle"></i> Clear
+            </button>
+            <div class="vr d-none d-md-block"></div>
+            <button class="btn btn-primary" onclick="openNewTriggerModal('SINGLE')"><i class="bi bi-plus-lg"></i> Single</button>
+            <button class="btn btn-primary" onclick="openNewTriggerModal('SCHEDULED')"><i class="bi bi-plus-lg"></i> Scheduled</button>
+            <button class="btn btn-primary" onclick="openNewTriggerModal('QUEUE')"><i class="bi bi-plus-lg"></i> Queue</button>
+        </div>
+
+        <!-- Row 2: filter pills (type | status), no labels -->
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <div class="btn-group btn-group-sm" role="group" aria-label="Type filter">
+                <input type="checkbox" class="btn-check trigger-type-pill" id="type-SCHEDULED" value="SCHEDULED" autocomplete="off" onchange="updateTriggerTableFilters()">
+                <label class="btn btn-outline-primary" for="type-SCHEDULED"><i class="bi bi-calendar-event"></i> Scheduled</label>
+
+                <input type="checkbox" class="btn-check trigger-type-pill" id="type-QUEUE" value="QUEUE" autocomplete="off" onchange="updateTriggerTableFilters()">
+                <label class="btn btn-outline-primary" for="type-QUEUE"><i class="bi bi-collection"></i> Queue</label>
+
+                <input type="checkbox" class="btn-check trigger-type-pill" id="type-SINGLE" value="SINGLE" autocomplete="off" onchange="updateTriggerTableFilters()">
+                <label class="btn btn-outline-primary" for="type-SINGLE"><i class="bi bi-1-circle"></i> Single</label>
+            </div>
+
+            <div class="vr"></div>
+
+            <div class="btn-group btn-group-sm flex-wrap" role="group" aria-label="Status filter">
+                <input type="checkbox" class="btn-check trigger-status-pill" id="status-IDLE" value="IDLE" autocomplete="off" onchange="updateTriggerTableFilters()">
+                <label class="btn btn-outline-secondary" for="status-IDLE"><i class="bi bi-power"></i> Idle</label>
+
+                <input type="checkbox" class="btn-check trigger-status-pill" id="status-RUNNING" value="RUNNING" autocomplete="off" onchange="updateTriggerTableFilters()">
+                <label class="btn btn-outline-info" for="status-RUNNING"><i class="bi bi-arrow-repeat"></i> Running</label>
+
+                <input type="checkbox" class="btn-check trigger-status-pill" id="status-DONE" value="DONE" autocomplete="off" onchange="updateTriggerTableFilters()">
+                <label class="btn btn-outline-success" for="status-DONE"><i class="bi bi-check2-circle"></i> Done</label>
+
+                <input type="checkbox" class="btn-check trigger-status-pill" id="status-FAILED" value="FAILED" autocomplete="off" onchange="updateTriggerTableFilters()">
+                <label class="btn btn-outline-danger" for="status-FAILED"><i class="bi bi-x-circle"></i> Failed</label>
+
+                <input type="checkbox" class="btn-check trigger-status-pill" id="status-PAUSED" value="PAUSED" autocomplete="off" onchange="updateTriggerTableFilters()">
+                <label class="btn btn-outline-warning" for="status-PAUSED"><i class="bi bi-pause-circle"></i> Paused</label>
+
+                <input type="checkbox" class="btn-check trigger-status-pill" id="status-PAUSING" value="PAUSING" autocomplete="off" onchange="updateTriggerTableFilters()">
+                <label class="btn btn-outline-warning" for="status-PAUSING"><i class="bi bi-pause-circle-fill"></i> Pausing</label>
+
+                <input type="checkbox" class="btn-check trigger-status-pill" id="status-KILLING" value="KILLING" autocomplete="off" onchange="updateTriggerTableFilters()">
+                <label class="btn btn-outline-warning" for="status-KILLING"><i class="bi bi-x-octagon"></i> Killing</label>
+
+                <input type="checkbox" class="btn-check trigger-status-pill" id="status-KILLED" value="KILLED" autocomplete="off" onchange="updateTriggerTableFilters()">
+                <label class="btn btn-outline-secondary" for="status-KILLED"><i class="bi bi-slash-circle"></i> Killed</label>
             </div>
         </div>
-    
-        <!-- Buttons (Right Side, Fully Right-Aligned) -->
-        <div class="d-flex gap-2 flex-shrink-0 align-items-center">
-            <button class="btn btn-primary" onclick="openNewTriggerModal('SINGLE')">New Single Trigger</button>
-            <button class="btn btn-primary" onclick="openNewTriggerModal('SCHEDULED')">New Scheduled Trigger</button>
-            <button class="btn btn-primary" onclick="openNewTriggerModal('QUEUE')">New Queue Trigger</button>
-        </div>
+
+    </div>
+
+    <!-- Bulk actions bar — fixed to bottom of viewport when there's a selection.
+         Lives OUTSIDE the toolbar so bootstrap-table's DOM manipulation
+         (data-toolbar) can't move it around. -->
+    <div id="bulk-actions-row" class="bulk-actions-bar d-none align-items-center gap-2 flex-wrap">
+        <span id="bulk-count" class="badge text-bg-primary rounded-pill"></span>
+        <span class="small text-muted">selected</span>
+        <button class="btn btn-sm btn-outline-secondary" onclick="bulkSetStatus('IDLE')"><i class="bi bi-power"></i> Reset to Idle</button>
+        <button class="btn btn-sm btn-outline-warning" onclick="bulkSetStatus('PAUSED')"><i class="bi bi-pause-circle"></i> Pause</button>
+        <button class="btn btn-sm btn-outline-danger" onclick="bulkDelete()"><i class="bi bi-trash"></i> Delete</button>
+        <button class="btn btn-sm btn-link ms-auto" onclick="$('#trigger-table').bootstrapTable('uncheckAll')">
+            <i class="bi bi-x"></i> Clear selection
+        </button>
     </div>
     
-    <table id="trigger-table" 
+    <table id="trigger-table"
     class="table table-striped table-hover table-bordered"
     data-toggle="table"
     data-pagination="true"
     data-side-pagination="server"
     data-page-size="25"
     data-page-list="[25, 50, 100, 1000, all]"
-
+    data-unique-id="id"
     data-toolbar="#trigger_toolbar"
     data-sort-name="trigger_name"
     data-sort-order="asc"
@@ -36,14 +95,15 @@
     
     <thead>
         <tr>
+            <th data-field="state" data-checkbox="true"></th>
             <th data-field="process_status" data-sortable="true" data-formatter="formatStatusButton" data-width="20"></th>
             <th data-field="trigger_name" data-sortable="true">Trigger Name</th>
-            <th data-field="process_name" data-sortable="true">Process Name</th>
-            <th data-field="git_branch" data-sortable="true" data-formatter="formatGitBranch" data-width="110">Git Branch</th>
-            <th data-field="type" data-sortable="true">Type</th>
-            <th data-field="last_run" data-sortable="true">Last Run</th>
-            <th data-field="next_run" data-sortable="true">Next Run</th>
-            <th data-field="priority" data-sortable="true">Priority</th>
+            <th data-field="process_name" data-sortable="true" class="d-none d-md-table-cell" data-class="d-none d-md-table-cell">Process Name</th>
+            <th data-field="git_branch" data-sortable="true" data-formatter="formatGitBranch" data-width="110" class="d-none d-lg-table-cell" data-class="d-none d-lg-table-cell">Git Branch</th>
+            <th data-field="type" data-sortable="true" class="d-none d-md-table-cell" data-class="d-none d-md-table-cell">Type</th>
+            <th data-field="last_run" data-sortable="true" class="d-none d-lg-table-cell" data-class="d-none d-lg-table-cell">Last Run</th>
+            <th data-field="next_run" data-sortable="true" class="d-none d-md-table-cell" data-class="d-none d-md-table-cell">Next Run</th>
+            <th data-field="priority" data-sortable="true" class="d-none d-lg-table-cell" data-class="d-none d-lg-table-cell">Priority</th>
             <th data-field="actions" data-formatter="formatActionButtons" data-width="180">Actions</th>
         </tr>
     </thead>

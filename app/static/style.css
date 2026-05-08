@@ -38,34 +38,63 @@ body {
     position: relative;
 }
 
+.navbar-brand {
+    letter-spacing: 0.3px;
+    line-height: 1;
+}
+
+.navbar-brand-icon {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.navbar-brand-text {
+    line-height: 28px;     /* match icon height so they sit on the same baseline */
+    display: inline-block;
+}
+
 .navbar-nav .nav-link {
-    font-size: 1.1rem;
-    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    padding: 0.5rem 0.85rem;
     position: relative;
-    transition: color 0.3s ease-in-out;
+    transition: color 0.2s ease-in-out, background-color 0.2s ease-in-out;
+    border-radius: 0.375rem;
+}
+
+.navbar-nav .nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.08);
 }
 
 .navbar-nav .nav-link.active {
-    font-weight: bold;
+    font-weight: 600;
     color: #fff !important;
+    background-color: rgba(255, 255, 255, 0.12);
 }
 
-.navbar-nav .nav-link::after {
-    content: "";
-    display: block;
-    width: 0%;
-    height: 3px;
-    background-color: white;
-    position: absolute;
-    bottom: 5px;
-    left: 50%;
-    transform: translateX(-50%);
-    transition: width 0.3s ease-in-out;
-}
+/* Underline accent — only on desktop where the navbar is horizontal.
+   In collapsed (mobile/tablet) view the menu is a vertical list and the
+   centered underline looks misplaced, so we hide it there. */
+@media (min-width: 992px) {
+    .navbar-nav .nav-link::after {
+        content: "";
+        display: block;
+        width: 0%;
+        height: 2px;
+        background-color: rgba(255, 255, 255, 0.85);
+        position: absolute;
+        bottom: 4px;
+        left: 50%;
+        transform: translateX(-50%);
+        transition: width 0.2s ease-in-out;
+    }
 
-.navbar-nav .nav-link:hover::after,
-.navbar-nav .nav-link.active::after {
-    width: 80%;
+    .navbar-nav .nav-link:hover::after,
+    .navbar-nav .nav-link.active::after {
+        width: 60%;
+    }
 }
 
 .nav-underline {
@@ -97,6 +126,119 @@ body {
 
 .mt-4 {
     max-width: 98% !important;
+}
+
+/* ----------------------------------------------------------------------- */
+/* Mobile / small-screen adjustments                                       */
+/* ----------------------------------------------------------------------- */
+
+/* Stack toolbar contents nicely and let bootstrap-table scroll horizontally
+   when it can't fit the viewport. */
+.fixed-table-toolbar {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.fixed-table-container {
+    overflow-x: auto;
+}
+
+/* Row flash animation (for auto-refresh row changes). */
+@keyframes row-flash {
+    0%   { background-color: rgba(255, 235, 59, 0.45); }
+    100% { background-color: transparent; }
+}
+tr.flash-row > td {
+    animation: row-flash 1.5s ease-out;
+}
+
+/* Floating bulk-actions bar — appears at the bottom of the viewport when one or
+   more rows are selected. Sits flush with the top edge of the fixed scheduler
+   footer; tables.js measures the footer at load and exposes its height as
+   --footer-height. */
+.bulk-actions-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: var(--footer-height, 60px);  /* flush with the top of the footer */
+    z-index: 1051;                        /* above table content + footer */
+    padding: 0.6rem 1rem;
+    background-color: var(--bs-body-bg);
+    border-top: 1px solid var(--bs-border-color);
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.12);
+}
+/* When the bar is showing, push the body up so the last rows aren't hidden. */
+body.has-bulk-actions {
+    padding-bottom: calc(var(--footer-height, 60px) + 70px);
+}
+
+/* On small screens, wrap long table-cell content vertically so the table never
+   needs horizontal scroll. Long words (URLs, paths, JSON, GUIDs) break mid-string. */
+@media (max-width: 991.98px) {
+    .table {
+        table-layout: auto;
+        width: 100%;
+    }
+    .table td, .table th {
+        white-space: normal;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        vertical-align: middle;
+    }
+    .fixed-table-container {
+        overflow-x: hidden;  /* hard stop on horizontal scroll */
+    }
+}
+
+@media (max-width: 575.98px) {
+    /* Tighter container padding on phones. */
+    .container, .container-fluid {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+
+    /* Smaller headings to save vertical space. */
+    h1 { font-size: 1.5rem; }
+    h2, .h2 { font-size: 1.25rem; }
+    h4, .h4 { font-size: 1.05rem; }
+
+    /* The custom .mt-4 max-width tweak fights mobile padding — disable. */
+    .mt-4 {
+        max-width: 100% !important;
+    }
+
+    /* Trim navbar size on phones. */
+    .navbar-nav .nav-link {
+        font-size: 1rem;
+        padding: 0.5rem 0.75rem;
+    }
+
+    /* Buttons in toolbars should be compact and wrap. */
+    .fixed-table-toolbar .btn,
+    main .container .btn {
+        font-size: 0.9rem;
+    }
+
+    /* Bootstrap-table pagination / page-list: prevent overflow. */
+    .fixed-table-pagination .pagination,
+    .fixed-table-pagination .pagination-detail {
+        flex-wrap: wrap;
+        font-size: 0.85rem;
+    }
+
+    /* Tables themselves: smaller text + horizontal scroll if needed. */
+    table.table {
+        font-size: 0.85rem;
+    }
+    .table-responsive {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Card headers/bodies a bit tighter. */
+    .card-body { padding: 0.75rem; }
+    .card-header { padding: 0.5rem 0.75rem; font-size: 0.95rem; }
+
+    /* Footer scheduler list — stack icons more aggressively. */
+    #scheduler-status-footer { font-size: 0.8rem; }
 }
 
 .bs-bars {
