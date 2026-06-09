@@ -1,4 +1,4 @@
-// Status pill IDs ↔ backend query-param names.
+// Status pill IDs mapped to backend query-param names.
 const STATUS_PILLS = {
     "overview-has-failed":      "has_failed",
     "overview-has-in-progress": "has_in_progress",
@@ -9,11 +9,6 @@ const STATUS_PILLS = {
 
 function queryParams(params) {
     const out = {
-        limit: params.limit,
-        offset: params.offset,
-        sort: params.sort,
-        order: params.order,
-        search: document.getElementById("overview-search")?.value || "",
         start_date: document.getElementById("overview-start")?.value || "",
         end_date:   document.getElementById("overview-end")?.value || "",
     };
@@ -24,11 +19,41 @@ function queryParams(params) {
 }
 
 function responseHandler(res) {
-    return { total: res.total, rows: res.rows };
+    return res.rows || res;
 }
 
-function updateOverviewFilters() {
-    $("#queues-overview-table").bootstrapTable("refresh", { pageNumber: 1 });
+let overviewRefreshTimer = null;
+let overviewSearchTimer = null;
+
+function updateOverviewFilters(delay = 350) {
+    clearTimeout(overviewRefreshTimer);
+
+    const refresh = () => {
+        $("#queues-overview-table").bootstrapTable("refresh", { pageNumber: 1 });
+    };
+
+    if (delay <= 0) {
+        refresh();
+        return;
+    }
+
+    overviewRefreshTimer = setTimeout(refresh, delay);
+}
+
+function updateOverviewSearch(delay = 150) {
+    clearTimeout(overviewSearchTimer);
+
+    const search = () => {
+        const value = document.getElementById("overview-search")?.value || "";
+        $("#queues-overview-table").bootstrapTable("resetSearch", value);
+    };
+
+    if (delay <= 0) {
+        search();
+        return;
+    }
+
+    overviewSearchTimer = setTimeout(search, delay);
 }
 
 function clearOverviewFilters() {
@@ -39,10 +64,11 @@ function clearOverviewFilters() {
         const el = document.getElementById(id);
         if (el) el.checked = false;
     }
-    updateOverviewFilters();
+    updateOverviewSearch(0);
+    updateOverviewFilters(0);
 }
 
-// Apply URL params on first table render — used by home-page deep-links and chart drill-down.
+// Apply URL params on first table render; used by home-page deep-links and chart drill-down.
 function applyQueueOverviewUrlFilters() {
     const params = new URLSearchParams(window.location.search);
     const known = ["search", "start_date", "end_date", ...Object.values(STATUS_PILLS)];
@@ -58,7 +84,8 @@ function applyQueueOverviewUrlFilters() {
         }
     }
     window.history.replaceState({}, document.title, window.location.pathname);
-    updateOverviewFilters();
+    updateOverviewSearch(0);
+    updateOverviewFilters(0);
 }
 
 document.addEventListener("DOMContentLoaded", () => {

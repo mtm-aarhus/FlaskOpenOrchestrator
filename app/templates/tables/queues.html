@@ -8,14 +8,14 @@
         <div class="d-flex flex-wrap gap-2 align-items-end">
             <div class="d-flex flex-column flex-grow-1" style="min-width: 200px;">
                 <label for="overview-search" class="form-label mb-1">Search queue</label>
-                <input type="text" id="overview-search" class="form-control" placeholder="queue name" oninput="updateOverviewFilters()">
+                <input type="text" id="overview-search" class="form-control" placeholder="queue name" oninput="updateOverviewSearch()">
             </div>
             <div class="d-flex flex-column">
-                <label for="overview-start" class="form-label mb-1">From</label>
+                <label for="overview-start" class="form-label mb-1">End date from</label>
                 <input type="datetime-local" id="overview-start" class="form-control" onchange="updateOverviewFilters()">
             </div>
             <div class="d-flex flex-column">
-                <label for="overview-end" class="form-label mb-1">To</label>
+                <label for="overview-end" class="form-label mb-1">End date to</label>
                 <input type="datetime-local" id="overview-end" class="form-control" onchange="updateOverviewFilters()">
             </div>
             <div class="d-flex flex-column">
@@ -53,9 +53,10 @@
         data-pagination="true"
         data-page-size="25"
         data-page-list="[25, 50, 100, 1000, all]"
-        data-sort-name="failed"
+        data-sort-name="FAILED"
         data-sort-order="desc"
-        data-side-pagination="server"
+        data-search="true"
+        data-search-selector="#overview-search"
         data-toolbar="#queues-overview-toolbar"
         data-url="{{ url_for('queues.get_queues_data') }}"
         data-row-style="rowStyle"

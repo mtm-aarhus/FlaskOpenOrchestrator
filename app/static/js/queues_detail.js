@@ -160,11 +160,6 @@ document.addEventListener("DOMContentLoaded", async function() {
 
         if (urlParams.has("end_date")) {
             endDateInput.value = urlParams.get("end_date").replace(" ", "T");
-        } else {
-            let now = new Date();
-            let timezoneOffset = now.getTimezoneOffset() * 60000;
-            let systemTime = new Date(now.getTime() - timezoneOffset);
-            endDateInput.value = systemTime.toISOString().slice(0, 16);
         }
 
         updateTableFilters(); // Call only after ensuring filters are set

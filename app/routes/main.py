@@ -92,8 +92,8 @@ def index():
             "link": url_for(
                 "queues.queues_detail",  
                 queue_name=queue.queue_name,
-                start_date=format_datetime(queue.start_date).strftime("%Y-%m-%d %H:%M"),
-                end_date=(format_datetime(queue.end_date)+ timedelta(minutes=1)).strftime("%Y-%m-%d %H:%M"),
+                start_date=format_datetime(queue.end_date).strftime("%Y-%m-%dT%H:%M"),
+                end_date=format_datetime(queue.end_date).strftime("%Y-%m-%dT%H:%M"),
                 filter_status=queue.status
             ),
         }
@@ -125,6 +125,7 @@ def index():
 
     # KPI counts for the home dashboard.
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    now_minute_end = now.replace(second=0, microsecond=0) + timedelta(minutes=1)
     counts = {
         "failed_triggers": len(failed_triggers),
         # All-time: every unhandled FAILED queue element regardless of when it failed.
@@ -147,6 +148,7 @@ def index():
             .select_from(Queues)
             .filter(
                 Queues.status == "DONE",
+                Queues.end_date < now_minute_end,
                 Queues.end_date >= today_start,
             )
             .scalar() or 0,
@@ -160,13 +162,13 @@ def index():
         counts=counts,
         # Used by the "Done today" KPI card to deep-link with a today-range filter.
         today_iso=today_start.strftime("%Y-%m-%dT%H:%M"),
-        tomorrow_iso=(today_start + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M"),
+        now_iso=now.strftime("%Y-%m-%dT%H:%M"),
         page='Home'
     )
 
 @bp.route("/performance")
 def queue_performance():
-    """Return queue success vs failed counts for the last 5 days. Two grouped queries total."""
+    """Return queue success vs failed counts for the last 5 days."""
     now = datetime.now()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     days = [today_start - timedelta(days=i) for i in range(4, -1, -1)]
@@ -182,28 +184,27 @@ def queue_performance():
         .correlate(Queues)
     )
 
-    day_col = cast(Queues.created_date, Date).label("d")
+    day_col = cast(Queues.end_date, Date).label("d")
 
     # One grouped query for success counts.
     success_rows = (
         db.session.query(day_col, db.func.count())
         .filter(
             Queues.status == "DONE",
-            Queues.created_date >= window_start,
-            Queues.created_date < window_end,
+            Queues.end_date < window_end,
+            Queues.end_date >= window_start,
         )
         .group_by(day_col)
         .all()
     )
     success_by_day = {d.strftime("%Y-%m-%d"): c for d, c in success_rows}
 
-    # One grouped query for failed counts (excluding handled).
     failed_rows = (
         db.session.query(day_col, db.func.count())
         .filter(
             Queues.status == "FAILED",
-            Queues.created_date >= window_start,
-            Queues.created_date < window_end,
+            Queues.end_date < window_end,
+            Queues.end_date >= window_start,
             ~handled_exists,
         )
         .group_by(day_col)
@@ -215,5 +216,5 @@ def queue_performance():
     return jsonify({
         "dates": days_iso,
         "success": [success_by_day.get(d, 0) for d in days_iso],
-        "failed":  [failed_by_day.get(d, 0)  for d in days_iso],
+        "failed": [failed_by_day.get(d, 0) for d in days_iso],
     })
